@@ -1,0 +1,3 @@
+#!/bin/bash
+
+fpm -s python -t deb --no-python-dependencies --after-install scripts/post-install.sh --deb-init scripts/duct -d python-twisted -d python-protobuf -d python-yaml -d python-openssl -a amd64 -n duct setup.py

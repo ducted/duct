@@ -1,0 +1,18 @@
+language: python
+python:
+  - 2.7
+  - 3.4
+  - 3.5
+install:
+    - pip install .
+before_install:
+    - wget http://aphyr.com/riemann/riemann_0.2.6_all.deb
+    - sudo apt-get update
+    - sudo apt-get install openjdk-7-jre
+    - sudo dpkg -i riemann_0.2.6_all.deb
+    - sudo /etc/init.d/riemann start
+script:
+    - trial duct
+
+after_script:
+    - sudo /etc/init.d/riemann stop
