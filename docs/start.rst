@@ -4,7 +4,11 @@ Getting started
 Installation
 ============
 
-Get the latest release from https://github.com/ducted/duct/releases/latest ::
+Install via pypi ::
+
+    $ pip install ducted
+
+Or get the latest release from https://github.com/ducted/duct/releases/latest ::
     
     $ aptitude install python-twisted python-protobuf python-yaml
     $ wget https://github.com/ducted/duct/releases/download/1.0/duct_1.0_amd64.deb
