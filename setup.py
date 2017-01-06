@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 
 setup(
-    name="duct",
+    name="ducted",
     version='1.0',
     url='http://github.com/ducted/duct',
     license='MIT',
