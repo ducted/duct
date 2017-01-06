@@ -10,11 +10,11 @@ Duct can be installed from PyPi with pip ::
 
 This will also install Twisted, protobuf and PyYAML
 
-Or you can use the .deb package. Let the latest release from https://github.com/calston/duct/releases/latest ::
+Or you can use the .deb package. Let the latest release from https://github.com/ducted/duct/releases/latest ::
     
     $ aptitude install python-twisted python-protobuf python-yaml
-    $ wget https://github.com/calston/duct/releases/download/0.3.0/duct_0.3.0_amd64.deb
-    $ dpkg -i duct_0.3.0_amd64.deb
+    $ wget https://github.com/ducted/duct/releases/download/1.0/duct_1.0_amd64.deb
+    $ dpkg -i duct_1.0_amd64.deb
 
 This also gives you an init script and default config in /etc/duct/
 

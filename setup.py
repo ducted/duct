@@ -4,9 +4,9 @@ from setuptools import setup, find_packages
 setup(
     name="duct",
     version='1.0',
-    url='http://github.com/calston/duct',
+    url='http://github.com/ducted/duct',
     license='MIT',
-    description="A Twisted based monitoring agent for Riemann",
+    description="A monitoring agent and event processor",
     author='Colin Alston',
     author_email='colin.alston@gmail.com',
     packages=find_packages() + [
@@ -25,11 +25,13 @@ setup(
         'cryptography',
     ],
     classifiers=[
-        'Development Status :: 4 - Beta',
+        'Development Status :: 5 - Production/Stable',
         'Intended Audience :: System Administrators',
         'License :: OSI Approved :: MIT License',
         'Operating System :: POSIX',
         'Programming Language :: Python',
+        'Programming Language :: Python :: 2',
+        'Programming Language :: Python :: 3',
         'Topic :: System :: Monitoring',
     ],
 )
