@@ -78,6 +78,7 @@ class ElasticSearch(Output):
     def transformEvent(self, e):
         d = dict(e)
         t = datetime.datetime.utcfromtimestamp(e.time)
+        d['metric'] = float(e.metric)
         d['@timestamp'] = t.isoformat()
 
         if 'ttl' in d:
