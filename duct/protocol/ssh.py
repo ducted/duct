@@ -16,6 +16,8 @@ class FakeLog(object):
     def callWithLogger(self, *a, **kw):
         return log.callWithLogger(*a, **kw)
 from twisted.conch.ssh import connection, channel
+
+
 connection.log = FakeLog()
 channel.log = FakeLog()
 
@@ -46,6 +48,7 @@ class SSHCommandProtocol(protocol.Protocol):
         else:
             code = reason.value.exitCode
         self.factory.done.callback((self.stdOut, self.stdErr, code))
+
 
 class SSHClient(object):
     def __init__(self, hostname, username, port, password=None,
@@ -121,17 +124,35 @@ class SSHClient(object):
             log.msg("Established SSH connection to %s" % (
                 self.hostname,))
             self.connection = protocol.transport.conn
+            
+            real_transport = protocol.transport.conn.transport
+            # Epic fail whomever wrote Conch :(
+            real_transport.connectionLost = lambda reason: self.connectionLost(real_transport, reason)
 
         d = self.endpoint.connect(factory)
         d.addCallback(connected)
 
         return d
 
+    def connectionLost(self, transport, reason):
+        if transport._userauth:
+            transport._userauth.loseAgentConnection()
+
+        if transport._state == b'RUNNING' or transport.connectionReady is None:
+            self.connection = None
+            log.msg("Connection to %s lost: Retrying" % self.hostname)
+            reactor.callLater(1, self.connect)
+            return
+        if transport._state == b'SECURING' and transport._hostKeyFailure is not None:
+            reason = transport._hostKeyFailure
+        elif transport._state == b'AUTHENTICATING':
+            reason = Failure(
+                AuthenticationFailed("Connection lost while authenticating"))
+
+        transport.connectionReady.errback(reason)
+
     def fork(self, command, args=(), env={}, path=None, timeout=3600):
         if not self.connection:
-            log.msg("Connection to %s not yet ready" % (
-                self.hostname,))
-
             return defer.maybeDeferred(lambda: (None, "SSH not ready", 255))
 
         if env:
