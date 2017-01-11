@@ -71,8 +71,7 @@ your configuration would look like this ::
 
     outputs:
         - output: duct.outputs.elasticsearch.ElasticSearch
-          server: 127.0.0.1
-          port: 9200
+          url: http://127.0.0.1:9200/
 
 Using sources
 =============
