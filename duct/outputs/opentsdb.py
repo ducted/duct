@@ -1,5 +1,4 @@
 import time
-import json
 import datetime
 
 from twisted.internet import reactor, defer, task
@@ -11,16 +10,15 @@ try:
 except:
     SSL=None
 
-from duct.protocol import elasticsearch
-
 from duct.objects import Output
+from duct.protocol.opentsdb import OpenTSDBClient
 
-class ElasticSearch(Output):
-    """ElasticSearch HTTP API output
+class OpenTSDB(Output):
+    """OpenTSDB HTTP API output
 
     **Configuration arguments:**
 
-    :param url: Elasticsearch URL (default: http://localhost:9200)
+    :param url: URL (default: http://localhost:4242)
     :type url: str
     :param maxsize: Maximum queue backlog size (default: 250000, 0 disables)
     :type maxsize: int
@@ -32,9 +30,8 @@ class ElasticSearch(Output):
     :type user: str
     :param password: Optional basic auth password
     :type password: str
-    :param index: Index name format to store documents in Elastic
-                  (default: duct-%Y.%m.%d)
-    :type index: str
+    :param debug: Log tracebacks from OpenTSDB
+    :type debug: str
     """
     def __init__(self, *a):
         Output.__init__(self, *a)
@@ -47,11 +44,9 @@ class ElasticSearch(Output):
         self.user = self.config.get('user')
         self.password = self.config.get('password')
 
-        self.url = self.config.get('url', 'http://localhost:9200')
+        self.url = self.config.get('url', 'http://localhost:4242')
 
         maxrate = int(self.config.get('maxrate', 100))
-
-        self.index = self.config.get('index', 'duct-%Y.%m.%d')
 
         if maxrate > 0:
             self.queueDepth = int(maxrate * self.inter)
@@ -62,8 +57,7 @@ class ElasticSearch(Output):
         """Sets up HTTP connector and starts queue timer
         """
 
-        self.client = elasticsearch.ElasticSearch(self.url, self.user,
-            self.password, self.index)
+        self.client = OpenTSDBClient(self.url, self.user, self.password)
 
         self.t.start(self.inter)
 
@@ -72,20 +66,29 @@ class ElasticSearch(Output):
         """
         self.t.stop()
 
-    def transformEvent(self, e):
-        d = dict(e)
-        t = datetime.datetime.utcfromtimestamp(e.time)
-        d['metric'] = float(e.metric)
-        d['@timestamp'] = t.isoformat()
+    def transformEvent(self, ev):
+        """Convert an event object into OpenTSDB format
+        """
+        d = {
+            'timestamp': int(ev.time * 1000),
+            'metric': ev.service.replace(' ', '_'),
+            'value': ev.metric,
+            'tags': {
+                'host': ev.hostname,
+                'state': ev.state,
+            }
+        }
 
-        if 'ttl' in d:
-            # Useless field to Elasticsearch
-            del d['ttl']
+        if ev.tags:
+            d['tags'] = ",".join(ev.tags)
 
+        if ev.attributes:
+            for k, v in ev.attributes.items():
+                d['tags'][k] = v
         return d
 
     def sendEvents(self, events):
-        return self.client.bulkIndex([self.transformEvent(e) for e in events])
+        return self.client.put([self.transformEvent(e) for e in events])
 
     @defer.inlineCallbacks
     def tick(self):
@@ -102,12 +105,14 @@ class ElasticSearch(Output):
 
             try:
                 result = yield self.sendEvents(events)
-                if result.get('errors', False):
-                    log.msg(repr(result))
+                if result.get('errors'):
+                    log.msg('OpenTSDB error: %s' % repr(result['errors']))
+                if result.get('error'):
+                    log.msg('OpenTSDB error: %s' % result['error']['message'])
+                    if self.config.get('debug'):
+                        for ln in result['error']['trace'].split('\n'):
+                            log.msg(ln)
 
             except Exception as e:
-                log.msg('Could not connect to elasticsearch ' + str(e))
+                log.msg('Could not connect to OpenTSDB ' + str(e))
                 self.events.extend(events)
-
-# Backward compatibility stub
-ElasticSearchLog = ElasticSearch

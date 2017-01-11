@@ -47,8 +47,8 @@ Using outputs
 =============
 
 A better and more explicit means of configuring where events go is to use
-the `output` framework. Currently there is support for Elasticsearch and
-Riemann, but this can easily be extended.
+the `output` framework. Currently there is support for Bosun, Elasticsearch,
+OpenTSDB and Riemann, but this can easily be extended.
 
 You can configure multiple outputs which receive a copy of every message
 for example ::
@@ -71,8 +71,7 @@ your configuration would look like this ::
 
     outputs:
         - output: duct.outputs.elasticsearch.ElasticSearch
-          server: 127.0.0.1
-          port: 9200
+          url: http://127.0.0.1:9200/
 
 Using sources
 =============

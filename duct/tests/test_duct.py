@@ -1,9 +1,12 @@
+import time
+import json
+
 from twisted.trial import unittest
 
 from twisted.internet import defer, reactor, error
 from twisted.internet.endpoints import TCP4ClientEndpoint, connectProtocol
 
-from duct.protocol import riemann
+from duct.protocol import riemann, elasticsearch, opentsdb
 
 from duct.objects import Event
 
@@ -12,10 +15,46 @@ from duct.utils import fork
 class Tests(unittest.TestCase):
     def setUp(self):
         self.endpoint = None
+        self.last_request = None
 
     def tearDown(self):
         if self.endpoint:
             return defer.maybeDeferred(self.endpoint.stopListening)
+
+    def _fake_request(self, result, *a, **kw):
+        self.last_request = (a, kw)
+        return result
+
+    @defer.inlineCallbacks
+    def test_elasticsearch_proto(self):
+        proto = elasticsearch.ElasticSearch()
+
+        def _wrap_request(*a, **kw):
+            return defer.maybeDeferred(self._fake_request, {"errors":[]}, *a, **kw)
+
+        proto._request = _wrap_request
+
+        index = proto._get_index()
+
+        t = time.strptime(index, "duct-%Y.%m.%d")
+        self.assertEqual(time.gmtime().tm_year, t.tm_year)
+        self.assertEqual(time.gmtime().tm_mday, t.tm_mday)
+        self.assertEqual(time.gmtime().tm_mon, t.tm_mon)
+
+        event = Event('ok', 'sky', 'Sky has not fallen', 1.0, 60.0,
+                      attributes={"chicken": "little"})
+
+        ans = yield proto.bulkIndex([dict(event)])
+
+        self.assertEqual(ans['errors'], [])
+
+        meta, metric = self.last_request[0][1].strip('\n').split('\n')
+        requestMeta = json.loads(meta)
+        requestData = json.loads(metric)
+
+        self.assertEqual(self.last_request[0][0], '/_bulk')
+        self.assertEqual(requestMeta['index']['_index'], index)
+        self.assertEqual(requestData['service'], 'sky')
 
     def test_riemann_protobuf(self):
         proto = riemann.RiemannProtocol()
