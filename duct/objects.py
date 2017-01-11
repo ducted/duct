@@ -82,8 +82,11 @@ class Event(object):
             'time': self.time,
             'type': self._type,
             'description': self.description,
-            'attributes': self.attributes,
         }
+
+        if self.attributes:
+            d['attributes'] = self.attributes
+
         for k, v in d.items():
             yield k, v
 

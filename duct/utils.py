@@ -268,7 +268,7 @@ class HTTPRequest(object):
             headers['Content-Type'] = ['application/json']
 
         body = yield self.getBody(url, method, headers, data, socket)
-        
+
         defer.returnValue(json.loads(body))
 
 class PersistentCache(object):

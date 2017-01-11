@@ -76,12 +76,15 @@ class OpenTSDB(Output):
                 'hostname': ev.hostname,
                 'description': ev.description,
                 'state': ev.state,
-                'tags': ",".join(ev.tags),
             }
         }
 
-        for k, v in ev.attributes.items():
-            d['tags'][k] = v
+        if ev.tags:
+            d['tags'] = ",".join(ev.tags)
+
+        if ev.attributes:
+            for k, v in ev.attributes.items():
+                d['tags'][k] = v
         return d
 
     def sendEvents(self, events):
