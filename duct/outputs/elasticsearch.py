@@ -109,15 +109,5 @@ class ElasticSearch(Output):
                 log.msg('Could not connect to elasticsearch ' + str(e))
                 self.events.extend(events)
 
-    def eventsReceived(self, events):
-        """Receives a list of events and queues them
-
-        Arguments:
-        events -- list of `duct.objects.Event`
-        """
-        # Make sure queue isn't oversized
-        if (self.maxsize < 1) or (len(self.events) < self.maxsize):
-            self.events.extend(events)
-
 # Backward compatibility stub
 ElasticSearchLog = ElasticSearch

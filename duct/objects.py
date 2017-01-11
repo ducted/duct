@@ -110,13 +110,15 @@ class Output(object):
         """
         pass
 
-    def eventsReceived(self):
-        """Receives a list of events and processes them
+    def eventsReceived(self, events):
+        """Receives a list of events and queues them
 
         Arguments:
         events -- list of `duct.objects.Event`
         """
-        pass
+        # Make sure queue isn't oversized
+        if (self.maxsize < 1) or (len(self.events) < self.maxsize):
+            self.events.extend(events)
 
     def stop(self):
         """Called when the service shuts down

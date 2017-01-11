@@ -159,15 +159,6 @@ class RiemannTCP(Output):
             else:
                 self.factory.proto.sendEvents([e for e in events if e.metric is not None])
 
-    def eventsReceived(self, events):
-        """Receives a list of events and transmits them to Riemann
-
-        Arguments:
-        events -- list of `duct.objects.Event`
-        """
-        # Make sure queue isn't oversized
-        if (self.maxsize < 1) or (len(self.events) < self.maxsize):
-            self.events.extend(events)
 
 class RiemannUDP(Output):
     """Riemann UDP output (spray-and-pray mode)
