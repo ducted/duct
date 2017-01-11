@@ -104,7 +104,6 @@ class ElasticSearch(Output):
                 result = yield self.sendEvents(events)
                 if result.get('errors', False):
                     log.msg(repr(result))
-                    self.events.extend(events)
 
             except Exception as e:
                 log.msg('Could not connect to elasticsearch ' + str(e))
