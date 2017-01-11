@@ -201,7 +201,6 @@ class HTTPRequest(object):
             request.deliverBody(BodyReceiver(d))
             b = yield d
             body = b.read()
-            print "--", body
         else:
             body = ""
 
@@ -295,8 +294,6 @@ class HTTPRequest(object):
             headers['Content-Type'] = ['application/json']
 
         body = yield self.getBody(url, method, headers, data, socket)
-
-        print(body)
 
         defer.returnValue(json.loads(body))
 
