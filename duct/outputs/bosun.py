@@ -15,6 +15,7 @@ from duct.objects import Output
 from duct.protocol.opentsdb import OpenTSDBClient
 
 from duct.outputs import opentsdb
+from duct.utils import HTTPRequest
 
 class Bosun(opentsdb.OpenTSDB):
     """Bosun HTTP API output
@@ -37,5 +38,39 @@ class Bosun(opentsdb.OpenTSDB):
     :type debug: str
     """
     def __init__(self, *a):
-        OpenTSDB.__init__(self, *a)
+        opentsdb.OpenTSDB.__init__(self, *a)
 
+        self.metacache = {}
+
+    def createMetadata(self, metas):
+        headers = {}
+        path = '/api/metadata/put'
+        if self.user:
+            authorization = b64encode('%s:%s' % (self.user, self.password)).decode()
+            headers['Authorization'] = ['Basic ' + authorization]
+
+        return HTTPRequest().getBody(
+            self.url + path, 'POST', headers=headers, data=json.dumps(metas).encode())
+
+    @defer.inlineCallbacks
+    def sendEvents(self, events):
+        tsdbEvents = []
+        metadataBatch = []
+        for e in events:
+            if not self.metacache.get(e.service):
+                metadataBatch.append({
+                    "Metric": e.service,
+                    "Name": "rate",
+                    "Value": "gauge"
+                })
+                self.metacache[e.service] = True
+
+            tsdbEvents.append(self.transformEvent(e))
+
+        if metadataBatch:
+            print "Creating metas", metadataBatch
+            meta = yield self.createMetadata(metadataBatch)
+
+        result = yield self.client.put(tsdbEvents)
+
+        defer.returnValue(result)

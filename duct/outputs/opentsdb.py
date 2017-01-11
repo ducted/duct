@@ -108,7 +108,7 @@ class OpenTSDB(Output):
             try:
                 result = yield self.sendEvents(events)
                 if result.get('errors'):
-                    log.msg('OpenTSDB error: %s' % repr(result))
+                    log.msg('OpenTSDB error: %s' % repr(result['errors']))
                 if result.get('error'):
                     log.msg('OpenTSDB error: %s' % result['error']['message'])
                     if self.config.get('debug'):
