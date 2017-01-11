@@ -1,5 +1,4 @@
 import time
-import json
 import datetime
 
 from twisted.internet import reactor, defer, task
@@ -72,11 +71,10 @@ class OpenTSDB(Output):
         """
         d = {
             'timestamp': int(ev.time * 1000),
-            'metric': ev.service,
+            'metric': ev.service.replace(' ', '_'),
             'value': ev.metric,
             'tags': {
                 'host': ev.hostname,
-                'description': ev.description,
                 'state': ev.state,
             }
         }

@@ -40,6 +40,8 @@ class Bosun(opentsdb.OpenTSDB):
     def __init__(self, *a):
         opentsdb.OpenTSDB.__init__(self, *a)
 
+        self.url = self.url.rstrip('/')
+
         self.metacache = {}
 
     def createMetadata(self, metas):
@@ -68,9 +70,9 @@ class Bosun(opentsdb.OpenTSDB):
             tsdbEvents.append(self.transformEvent(e))
 
         if metadataBatch:
-            print "Creating metas", metadataBatch
             meta = yield self.createMetadata(metadataBatch)
 
-        result = yield self.client.put(tsdbEvents)
+        #result = yield self.client.put(tsdbEvents)
+        result = {}
 
         defer.returnValue(result)
