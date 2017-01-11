@@ -62,9 +62,6 @@ class ElasticSearch(Output):
         """Sets up HTTP connector and starts queue timer
         """
 
-        server = self.config.get('server', 'localhost')
-        port = int(self.config.get('port', 9200))
-
         self.client = elasticsearch.ElasticSearch(self.url, self.user,
             self.password, self.index)
 
