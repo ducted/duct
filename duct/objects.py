@@ -81,6 +81,7 @@ class Event(object):
             'tags': self.tags,
             'time': self.time,
             'description': self.description,
+            'attributes': self.attributes,
         }
         for k, v in d.items():
             yield k, v
