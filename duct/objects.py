@@ -80,6 +80,7 @@ class Event(object):
             'ttl': self.ttl,
             'tags': self.tags,
             'time': self.time,
+            'type': self._type,
             'description': self.description,
             'attributes': self.attributes,
         }
@@ -105,6 +106,7 @@ class Output(object):
     def __init__(self, config, duct):
         self.config = config
         self.duct = duct
+        self.events = []
 
     def createClient(self):
         """Deferred which sets up the output
