@@ -1,12 +1,13 @@
 duct.outputs
 **************
 
-duct.outputs.riemann
-======================
+duct.outputs.bosun
+============================
 
-.. automodule:: duct.outputs.riemann
+.. automodule:: duct.outputs.bosun
    :members:
    :show-inheritance:
+
 
 duct.outputs.elasticsearch
 ============================
@@ -14,4 +15,19 @@ duct.outputs.elasticsearch
 .. automodule:: duct.outputs.elasticsearch
    :members:
    :show-inheritance:
+
+duct.outputs.opentsdb
+============================
+
+.. automodule:: duct.outputs.opentsdb
+   :members:
+   :show-inheritance:
+
+duct.outputs.riemann
+======================
+
+.. automodule:: duct.outputs.riemann
+   :members:
+   :show-inheritance:
+
 
