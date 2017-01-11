@@ -201,12 +201,16 @@ class HTTPRequest(object):
             request.deliverBody(BodyReceiver(d))
             b = yield d
             body = b.read()
+            print "--", body
         else:
             body = ""
 
+        if (request.code < 200) or (request.code > 299):
+            raise Exception((request.code, body))
+
         defer.returnValue(body)
 
-    def request(self, url, method='GET', headers={}, data=None, socket=None):
+    def request(self, url, method='GET', headers={}, data=None, socket=None, follow_redirect=False):
         self.timedout = False
 
         if socket:
@@ -232,6 +236,29 @@ class HTTPRequest(object):
             def timeoutProxy(request):
                 if timer.active():
                     timer.cancel()
+
+                if follow_redirect and (request.code in (301, 302,)):
+                    location = request.headers.getRawHeaders('location')
+                    url = request.request.absoluteURI
+                    if location:
+                        if not location[0].startswith("http"):
+                            # Well this isn't really allowed
+                            if location[0].startswith("/"):
+                                hp = '/'.join(url.split('/')[:3])
+                                url = hp + location[0]
+                            else:
+                                url = url.rstrip('/') + '/' + location[0]
+                        else:
+                            url = location[0]
+
+                        log.msg("Redirecting to %s" % url)
+
+                        return self.request(url, method=method, headers=headers,
+                                            data=data, socket=socket,
+                                            follow_redirect=follow_redirect)
+                    else:
+                        raise Exception("Server responded with %s code but no location header" % request.code)
+
                 return self.response(request)
 
             def requestAborted(failure):
@@ -268,6 +295,8 @@ class HTTPRequest(object):
             headers['Content-Type'] = ['application/json']
 
         body = yield self.getBody(url, method, headers, data, socket)
+
+        print(body)
 
         defer.returnValue(json.loads(body))
 
