@@ -31,6 +31,8 @@ class OpenTSDB(Output):
     :type user: str
     :param password: Optional basic auth password
     :type password: str
+    :param debug: Log tracebacks from OpenTSDB
+    :type debug: str
     """
     def __init__(self, *a):
         Output.__init__(self, *a)
@@ -73,7 +75,7 @@ class OpenTSDB(Output):
             'metric': ev.service,
             'value': ev.metric,
             'tags': {
-                'hostname': ev.hostname,
+                'host': ev.hostname,
                 'description': ev.description,
                 'state': ev.state,
             }
@@ -105,8 +107,13 @@ class OpenTSDB(Output):
 
             try:
                 result = yield self.sendEvents(events)
-                if result.get('errors', False):
-                    log.msg(repr(result))
+                if result.get('errors'):
+                    log.msg('OpenTSDB error: %s' % repr(result))
+                if result.get('error'):
+                    log.msg('OpenTSDB error: %s' % result['error']['message'])
+                    if self.config.get('debug'):
+                        for ln in result['error']['trace'].split('\n'):
+                            log.msg(ln)
 
             except Exception as e:
                 log.msg('Could not connect to OpenTSDB ' + str(e))
