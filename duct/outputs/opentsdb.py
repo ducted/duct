@@ -4,12 +4,6 @@ import datetime
 from twisted.internet import reactor, defer, task
 from twisted.python import log
 
-try:
-    from OpenSSL import SSL
-    from twisted.internet import ssl
-except:
-    SSL=None
-
 from duct.objects import Output
 from duct.protocol.opentsdb import OpenTSDBClient
 
