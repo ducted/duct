@@ -18,10 +18,10 @@ class Logger(Output):
             self.logfile = None
 
     def stop(self):
-        self.t.stop()
-        self.logfile.close()
+        if self.logfile:
+            self.logfile.close()
 
-    def sendEvents(self, events):
+    def eventsReceived(self, events):
         for e in events:
             if self.logfile:
                 self.logfile.write(repr(e) + '\n')
