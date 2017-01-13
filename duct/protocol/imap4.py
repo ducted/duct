@@ -6,6 +6,11 @@
 .. moduleauthor:: Colin Alston <colin@imcol.in>
 """
 
+import sys
+
+if sys.version_info > (3,0):
+    raise Exception("This protocol is not yet supported on Python 3")
+
 from twisted.internet import defer, reactor, ssl, endpoints, protocol
 from twisted.mail import imap4
 from twisted.python import log

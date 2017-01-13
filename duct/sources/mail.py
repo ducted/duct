@@ -8,6 +8,10 @@
 
 import time
 import uuid
+import sys
+
+if sys.version_info > (3,0):
+    raise Exception("Mail checks are not yet available on Python 3")
 
 from email.mime.text import MIMEText
 
