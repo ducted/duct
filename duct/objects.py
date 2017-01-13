@@ -110,6 +110,7 @@ class Output(object):
         self.config = config
         self.duct = duct
         self.events = []
+        self.maxsize = 0
 
     def createClient(self):
         """Deferred which sets up the output
@@ -123,7 +124,10 @@ class Output(object):
         events -- list of `duct.objects.Event`
         """
         # Make sure queue isn't oversized
-        if (self.maxsize < 1) or (len(self.events) < self.maxsize):
+        if self.maxsize > 0:
+            if (self.maxsize < 1) or (len(self.events) < self.maxsize):
+                self.events.extend(events)
+        else:
             self.events.extend(events)
 
     def stop(self):
@@ -246,17 +250,28 @@ class Source(object):
     def _queueBack(self, caller):
         return lambda events: caller(self, events)
 
+    def start(self):
+        pass
+
+    @defer.inlineCallbacks
     def startTimer(self):
         """Starts the timer for this source"""
+        yield defer.maybeDeferred(self.start)
+
         self.td = self.t.start(self.inter)
 
         if self.use_ssh and self.ssh_connector:
-            self.ssh_client.connect()
+            yield defer.maybeDeferred(self.ssh_client.connect)
+
+
+    def stop(self):
+        pass
 
     def stopTimer(self):
         """Stops the timer for this source"""
         self.td = None
         self.t.stop()
+        return defer.maybeDeferred(self.stop)
 
     def fork(self, *a, **kw):
         if self.use_ssh:

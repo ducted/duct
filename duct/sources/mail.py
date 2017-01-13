@@ -1,7 +1,7 @@
 """
-.. module:: network
+.. module:: mail
    :platform: Unix
-   :synopsis: A source module for network checks
+   :synopsis: A source module for mailserver tests
 
 .. moduleauthor:: Colin Alston <colin@imcol.in>
 """
@@ -13,56 +13,14 @@ from email.mime.text import MIMEText
 
 from twisted.internet import defer
 from twisted.mail.smtp import sendmail
-from twisted.mail import imap4
 from twisted.python import log
 
 from zope.interface import implementer
 
 from duct.interfaces import IDuctSource
 from duct.objects import Source
-from duct.protocol import icmp
-from duct.utils import HTTPRequest, Timeout
 
-
-class IMAP4Client(imap4.IMAP4Client):
-    """
-    A client with callbacks for greeting messages from an IMAP server.
-    """
-    greetDeferred = None
-
-    def serverGreeting(self, caps):
-        self.serverCapabilities = caps
-        if self.greetDeferred is not None:
-            d, self.greetDeferred = self.greetDeferred, None
-            d.callback(self)
-
-
-class IMAP4ClientFactory(protocol.ClientFactory):
-    usedUp = False
-    protocol = SimpleIMAP4Client
-
-    def __init__(self, username, onConn):
-        self.username = username
-        self.onConn = onConn
-
-    def buildProtocol(self, addr):
-        assert not self.usedUp
-        self.usedUp = True
-
-        p = self.protocol()
-        p.factory = self
-        p.greetDeferred = self.onConn
-
-        p.registerAuthenticator(imap4.PLAINAuthenticator(self.username))
-        p.registerAuthenticator(imap4.LOGINAuthenticator(self.username))
-        p.registerAuthenticator(
-                imap4.CramMD5ClientAuthenticator(self.username))
-
-        return p
-
-    def clientConnectionFailed(self, connector, reason):
-        d, self.onConn = self.onConn, None
-        d.errback(reason)
+from duct.protocol import imap4
 
 
 @implementer(IDuctSource)
@@ -166,18 +124,22 @@ class RoundTrip(SMTP):
     :param password: Password (optional)
     :type password: str.
 
-    :param mail_type: pop3 or imap
+    :param mail_type: pop3 or imap (default: imap)
     :type mail_type: str.
-    :param mail_server: POP3/IMAP server
+    :param mail_server: POP3/IMAP server (default: `hostname`)
     :type mail_server: str.
-    :param mail_port: POP3/IMAP port
-    :type mail_port: str.
-    :param mail_username: POP3/IMAP username
+    :param mail_port: POP3/IMAP port (default: standard port)
+    :type mail_port: int.
+    :param mail_username: POP3/IMAP username (required)
     :type mail_username: str.
-    :param mail_password: POP3/IMAP password
+    :param mail_password: POP3/IMAP password (required)
     :type mail_password: str.
-    :param mail_ssl: Use SSL/TLS for POP3/IMAP
+    :param mail_ssl: Use SSL/TLS for POP3/IMAP (default: False)
     :type mail_ssl: bool.
+    :param imap_mailbox: Mailbox to check for IMAP (default: INBOX)
+    :type imap_mailbox: str.
+    :param max_time: Max time to wait for delivery in seconds (default: 60)
+    :type max_time: int.
 
     **Metrics:**
 
@@ -190,13 +152,109 @@ class RoundTrip(SMTP):
             self.config['server'] = self.config['smtp_server']
 
         if 'smtp_port' in self.config:
-            self.config['server'] = self.config['smtp_port']
-        
-    def checkImap(self, id):
-        
+            self.config['port'] = int(self.config['smtp_port'])
+
+        self.max_time = int(self.config.get('max_time', 60))
+
+        self.mail_type = self.config.get('mail_type', 'imap')
+
+        self.mail_server = self.config.get('mail_server', self.hostname)
+        self.mail_ssl = self.config.get('mail_ssl', False)
+
+        self.username = self.config['mail_username']
+        self.password = self.config['mail_password']
+
+        self.imapClient = None
+
+        self.sent = None
+
+        if self.mail_type == 'imap':
+            self.mailbox = self.config.get('imap_mailbox', 'INBOX')
+            if self.mail_ssl:
+                self.mail_port = self.config.get('mail_port', 993)
+            else: 
+                self.mail_port = self.config.get('mail_port', 143)
+        elif self.mail_type == 'pop3':
+            if self.mail_ssl:
+                self.mail_port = self.config.get('mail_port', 995)
+            else:
+                self.mail_port = self.config.get('mail_port', 110)
+        else:
+            raise Exception("Unsupported mailserver type '%s'" % self.mail_type)
+
+    @defer.inlineCallbacks
+    def connectImap(self):
+        if not self.imapClient:
+            self.imapClient = imap4.IMAPClient(self.mail_server, self.mail_port,
+                                          self.username, self.password,
+                                          ssl=self.mail_ssl)
+
+        if not self.imapClient.connected:
+
+            yield self.imapClient.connect()
+
+            mailboxes = yield self.imapClient.getMailboxes()
+
+            if self.mailbox in mailboxes:
+                yield self.imapClient.useMailbox(self.mailbox)
+            else:
+                log.msg("Can't find mailbox %s" % self.mailbox)
+
+    def stop(self):
+        yield self.imapClient.disconnect()
 
     @defer.inlineCallbacks
     def get(self):
-        elapsed, info, state, id = yield self.sendMail()
+        events = []
+        if not self.sent:
+            today = time.strftime('%d-%b-%Y')
+            elapsed, info, state, uid = yield self.sendMail()
+            events.append(self.createEvent(state,
+                          info, elapsed, prefix='smtp'))
 
-        yield self.checkImap(id)
+            if state == 'ok':
+                self.sent = (uid, today, elapsed, time.time())
+
+        else:
+            try:
+                yield self.connectImap()
+                events.append(self.createEvent('ok',
+                              'IMAP OK', 1, prefix='imap'))
+            except:
+                events.append(self.createEvent('critical',
+                              'Could not connect to IMAP', 0, prefix='imap'))
+                defer.returnValue(events)
+
+            uid, today, elapsed, t = self.sent
+
+            mailnum = yield self.imapClient.findMail(
+                subject="Duct check %s" % uid,
+                since=today
+            )
+
+            if mailnum:
+                mail = yield self.imapClient.getMail(mailnum[0])
+
+                body = mail.get(mailnum[0])
+                if body:
+                    body = body.values()[0]
+                    expected = 'Duct email test: %s' % uid
+                    if expected in body:
+                        round_trip = (time.time() - t) + elapsed
+                        events.append(self.createEvent('ok',
+                                      'Mail delivery RTT', round_trip,
+                                      prefix='delivery'))
+                        self.sent = None
+
+                yield self.imapClient.deleteMail(mailnum[0])
+            yield self.imapClient.disconnect()
+
+            if self.sent and ((time.time() - t) > self.max_time):
+                # Stil waiting after max_time, so give up and raise error
+                events.append(self.createEvent('critical',
+                              'Mail delivery failed', time.time() - t,
+                              prefix='delivery'))
+
+                self.sent = None
+
+        defer.returnValue(events)

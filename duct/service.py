@@ -326,6 +326,9 @@ class DuctService(service.Service):
         if self.watchdog:
             self.watchdog.stop()
 
+        for source in self.sources:
+            yield defer.maybeDeferred(source.stopTimer)
+
         for n, outputs in self.outputs.items():
             for output in outputs:
                 yield defer.maybeDeferred(output.stop)
