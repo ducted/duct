@@ -295,7 +295,14 @@ class HTTPRequest(object):
 
         body = yield self.getBody(url, method, headers, data, socket)
 
-        defer.returnValue(json.loads(body))
+        try:
+            if not body:
+                defer.returnValue({})
+            response = json.loads(body)
+        except ValueError as e:
+            raise ValueError("Response was not JSON: %s" % repr(body))
+
+        defer.returnValue(response)
 
 class PersistentCache(object):
     """A very basic dictionary cache abstraction. Not to be used
