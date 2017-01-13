@@ -1,3 +1,11 @@
+"""
+.. module:: unbound 
+   :platform: Unix
+   :synopsis: A source module for unbound stats
+
+.. moduleauthor:: Colin Alston <colin@imcol.in>
+"""
+
 from zope.interface import implementer
 
 from twisted.internet import defer

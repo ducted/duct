@@ -49,7 +49,7 @@ class DuctService(service.Service):
             if os.path.exists(ipath):
                 files = [
                     os.path.join(ipath, f) for f in os.listdir(ipath)
-                        if f[-4:] == '.yml'
+                        if (f.endswith('.yml') or f.endswith('.yaml'))
                 ]
 
                 for f in files:
@@ -254,8 +254,9 @@ class DuctService(service.Service):
 
         self.lastEvents[source] = time.time()
 
-    def _startSource(self, source):
-        source.startTimer()
+    @defer.inlineCallbacks
+    def _startSource(self, source, d):
+        yield defer.maybeDeferred(source.startTimer)
 
     @defer.inlineCallbacks
     def startService(self):
@@ -265,13 +266,14 @@ class DuctService(service.Service):
             log.msg("Starting service")
 
         stagger = 0
+        d = defer.Deferred()
         # Start sources internal timers
         for source in self.sources:
             if self.debug:
                 log.msg("Starting source " + source.config['service'])
             # Stagger source timers, or use per-source start_delay
             start_delay = float(source.config.get('start_delay', stagger))
-            reactor.callLater(start_delay, self._startSource, source)
+            reactor.callLater(start_delay, self._startSource, source, d)
             stagger += self.stagger
 
         reactor.callLater(stagger, self.startWatchdog)
@@ -323,8 +325,11 @@ class DuctService(service.Service):
     def stopService(self):
         self.running = 0
 
-        if self.watchdog:
+        if self.watchdog and self.watchdog.running:
             self.watchdog.stop()
+
+        for source in self.sources:
+            yield defer.maybeDeferred(source.stopTimer)
 
         for n, outputs in self.outputs.items():
             for output in outputs:

@@ -1,3 +1,11 @@
+"""
+.. module:: rabbitmq
+   :platform: Unix
+   :synopsis: A source module for rabbitmq stats
+
+.. moduleauthor:: Colin Alston <colin@imcol.in>
+"""
+
 import time
 
 from zope.interface import implementer

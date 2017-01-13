@@ -8,11 +8,17 @@ duct.outputs.bosun
    :members:
    :show-inheritance:
 
-
 duct.outputs.elasticsearch
 ============================
 
 .. automodule:: duct.outputs.elasticsearch
+   :members:
+   :show-inheritance:
+
+duct.outputs.logger
+============================
+
+.. automodule:: duct.outputs.logger
    :members:
    :show-inheritance:
 
