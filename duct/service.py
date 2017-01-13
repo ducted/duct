@@ -49,7 +49,7 @@ class DuctService(service.Service):
             if os.path.exists(ipath):
                 files = [
                     os.path.join(ipath, f) for f in os.listdir(ipath)
-                        if f[-4:] == '.yml'
+                        if (f.endswith('.yml') or f.endswith('.yaml'))
                 ]
 
                 for f in files:
