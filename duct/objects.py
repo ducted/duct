@@ -270,7 +270,8 @@ class Source(object):
     def stopTimer(self):
         """Stops the timer for this source"""
         self.td = None
-        self.t.stop()
+        if self.t.running:
+            self.t.stop()
         return defer.maybeDeferred(self.stop)
 
     def fork(self, *a, **kw):
