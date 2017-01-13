@@ -1,3 +1,11 @@
+"""
+.. module:: redis
+   :platform: Unix
+   :synopsis: A source module for redis stats
+
+.. moduleauthor:: Colin Alston <colin@imcol.in>
+"""
+
 import time
 
 from zope.interface import implementer
