@@ -1,3 +1,3 @@
 #!/bin/bash
 
-fpm -s python -t rpm --no-python-dependencies --after-install scripts/post-install.sh --deb-init scripts/duct -d python-crypto -d python-twisted -d protobuf-python.x86_64 -d PyYAML -d pyOpenSSL -a amd64 -n duct setup.py
+fpm -s python -t rpm --no-python-dependencies --after-install scripts/post-install.sh --deb-init scripts/duct -d python-crypto -d python-twisted -d protobuf-python -d PyYAML -d pyOpenSSL -a noarch -n duct setup.py
