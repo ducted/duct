@@ -43,7 +43,7 @@ class Event(object):
             aggregation=None,
             evtime=None,
             attributes=None,
-            type='riemann'):
+            type='metric'):
         self.state = state
         self.service = service
         self.description = description
