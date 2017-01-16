@@ -1,3 +1,10 @@
 #!/bin/bash
 
+PP=`which python`
+
+if [[ $PP == *"/home"* ]]; then
+  echo "Don't use these scripts inside a virtualenv!"
+  exit 1
+fi
+
 fpm -s python -t deb --no-python-dependencies --after-install scripts/post-install.sh --deb-init scripts/duct -d python-cryptography -d python-twisted -d python-protobuf -d python-yaml -d python-openssl -a amd64 -n duct setup.py

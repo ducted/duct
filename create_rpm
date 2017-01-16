@@ -1,3 +1,9 @@
 #!/bin/bash
+PP=`which python`
 
-fpm -s python -t rpm --no-python-dependencies --after-install scripts/post-install.sh --deb-init scripts/duct -d python-crypto -d python-twisted -d protobuf-python -d PyYAML -d pyOpenSSL -a noarch -n duct setup.py
+if [[ $PP == *"/home"* ]]; then
+  echo "Don't use these scripts inside a virtualenv!"
+  exit 1
+fi
+
+fpm -s python -t rpm --no-python-dependencies --after-install scripts/post-install-rh.sh --rpm-init scripts/duct -d python-crypto -d python-twisted -d protobuf-python -d PyYAML -d pyOpenSSL -a noarch -n duct setup.py
