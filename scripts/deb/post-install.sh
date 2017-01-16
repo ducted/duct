@@ -3,6 +3,7 @@
 if [ ! -d /etc/duct ]; 
 then
     mkdir -p /etc/duct
+    mkdir /etc/duct/conf.d
     cat >/etc/duct/duct.yml <<EOL
 # Default event TTL
 ttl: 60.0
@@ -11,26 +12,26 @@ interval: 1.0
 
 # TCP Output
 outputs:
-    - output: duct.outputs.riemann.RiemannTCP
-      server: 127.0.0.1
-      port: 5555
+    - output: duct.outputs.logger.Logger
 
 # Sources
 sources:
     - service: load
       source: duct.sources.linux.basic.LoadAverage
-      interval: 2.0
+      interval: 10.0
 
     - service: cpu
       source: duct.sources.linux.basic.CPU
-      interval: 2.0
+      interval: 10.0
       critical: {
         cpu: "> 0.8"
       }
 
     - service: memory
       source: duct.sources.linux.basic.Memory
-      interval: 2.0
+      interval: 10.0
+
+include_path: /etc/duct/conf.d
 EOL
 fi
 

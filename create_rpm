@@ -6,4 +6,6 @@ if [[ $PP == *"/home"* ]]; then
   exit 1
 fi
 
-fpm -s python -t rpm --no-python-dependencies --after-install scripts/post-install-rh.sh --rpm-init scripts/duct -d python-crypto -d python-twisted -d protobuf-python -d PyYAML -d pyOpenSSL -a noarch -n duct setup.py
+DEPS="-d python-crypto -d python-twisted -d protobuf-python -d PyYAML -d pyOpenSSL"
+
+fpm -s python -t rpm --no-python-dependencies --after-install scripts/rhel/post-install.sh --rpm-init scripts/rhel/duct $DEPS -a noarch --iteration el7 -n duct setup.py

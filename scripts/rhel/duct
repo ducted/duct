@@ -1,4 +1,14 @@
 #! /bin/sh
+#
+# duct      Duct monitoring agent
+#
+# chkconfig: 2345 80 30
+# description: Duct is a monitoring agent which can create metrics
+#              and route them to other services
+# processname: master
+# pidfile: /var/run/duct.pid
+# config: /etc/duct/duct.yml
+
 ### BEGIN INIT INFO
 # Provides:          duct
 # Required-Start:    $remote_fs $network $named
@@ -6,15 +16,19 @@
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
 # Short-Description: Start/stop duct
-# Description:       Start/stop duct daemon
+# Description:       Duct is a monitoring agent which can create metrics
+#                    and route them to other services
 ### END INIT INFO
 
 
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 DAEMON=`which twistd`
 NAME=duct
-DESC=duct
+DESC=Duct
 FDHACK=4096
+
+# Source function library.
+. /etc/rc.d/init.d/functions
 
 test -x $DAEMON || exit 0
 
@@ -24,6 +38,10 @@ PIDFILE=/var/run/$NAME.pid
 LOGGER="--syslog"
 DODTIME=2
 DAEMON_OPTS="--pidfile=${PIDFILE} ${LOGGER} duct -c /etc/duct/duct.yml"
+
+if [ -f /etc/default/$NAME ]; then
+    . /etc/default/$NAME
+fi
 
 set -e
 
@@ -73,22 +91,30 @@ force_stop() {
     return 0
 }
 
+start()
+{
+    echo -n "Starting $DESC: "
+    daemon --pidfile "$PIDFILE" $DAEMON $DAEMON_OPTS
+    RETVAL=$?
+    echo
+    return $RETVAL
+}
+
+stop()
+{
+    echo -n "Stopping $DESC: "
+    killproc -p "$PIDFILE"
+    RETVAL=$?
+    echo
+    return $RETVAL
+}
+
 case "$1" in
   start)
-	echo -n "Starting $NAME: "
-	start-stop-daemon --start --quiet --pidfile $PIDFILE \
-		--exec $DAEMON -- $DAEMON_OPTS
-	test -f $PIDFILE || sleep 1
-        if running ; then
-            echo "$NAME."
-        else
-            echo " ERROR."
-        fi
+        start
 	;;
   stop)
-	echo -n "Stopping $NAME: "
-	start-stop-daemon --stop --quiet --oknodo --pidfile $PIDFILE 
-	echo "$NAME."
+        stop
 	;;
   force-stop)
 	echo -n "Forcefully stopping $NAME: "
@@ -100,26 +126,20 @@ case "$1" in
         fi
 	;;
   force-reload)
-	start-stop-daemon --stop --test --quiet --pidfile $PIDFILE --exec $DAEMON \ && $0 restart || exit 0
+	daemon --stop --test --quiet --pidfile $PIDFILE --exec $DAEMON \ && $0 restart || exit 0
 	;;
   restart)
         echo -n "Restarting $NAME: "
 
-	start-stop-daemon --stop --quiet --oknodo --pidfile $PIDFILE 
+	daemon --stop --quiet --oknodo --pidfile $PIDFILE 
 	[ -n "$DODTIME" ] && sleep $DODTIME
 
-	start-stop-daemon --start --quiet --pidfile $PIDFILE \
+	daemon --start --quiet --pidfile $PIDFILE \
 		--exec $DAEMON -- $DAEMON_OPTS
 	echo "$NAME."
 	;;
   status)
-        echo -n "$NAME is "
-        if running ;  then
-            echo "running"
-        else
-            echo " not running."
-            exit 1
-        fi
+        status -p "$PIDFILE" -l "$NAME" "$DAEMON"
         ;;
   *)
 	N=/etc/init.d/$NAME
