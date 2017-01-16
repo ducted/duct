@@ -16,6 +16,11 @@ then
 fi
 sudo cp -a . /opt/ducted/duct
 sudo rm -rf /opt/ducted/duct/ve
+sudo rm -rf /opt/ducted/duct/build
+sudo rm -rf /opt/ducted/duct/puppet
+sudo rm -rf /opt/ducted/duct/scripts
+sudo rm -rf /opt/ducted/duct/*.rpm
+sudo rm -rf /opt/ducted/duct/*.deb
 sudo rm -rf /opt/ducted/duct/.git
 sudo rm -rf /opt/ducted/duct/.gitignore
 sudo rm -rf /opt/ducted/duct/.travis.yml
