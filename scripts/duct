@@ -20,8 +20,10 @@ test -x $DAEMON || exit 0
 
 LOGDIR=/var/log
 PIDFILE=/var/run/$NAME.pid
+#LOGGER="--logfile=${LOGDIR}/duct.log"
+LOGGER="--syslog"
 DODTIME=2
-DAEMON_OPTS="--pidfile=${PIDFILE} --logfile=${LOGDIR}/duct.log duct -c /etc/duct/duct.yml"
+DAEMON_OPTS="--pidfile=${PIDFILE} ${LOGGER} duct -c /etc/duct/duct.yml"
 
 set -e
 
