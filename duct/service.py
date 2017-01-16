@@ -255,7 +255,7 @@ class DuctService(service.Service):
         self.lastEvents[source] = time.time()
 
     @defer.inlineCallbacks
-    def _startSource(self, source, d):
+    def _startSource(self, source):
         yield defer.maybeDeferred(source.startTimer)
 
     @defer.inlineCallbacks
@@ -266,14 +266,13 @@ class DuctService(service.Service):
             log.msg("Starting service")
 
         stagger = 0
-        d = defer.Deferred()
         # Start sources internal timers
         for source in self.sources:
             if self.debug:
                 log.msg("Starting source " + source.config['service'])
             # Stagger source timers, or use per-source start_delay
             start_delay = float(source.config.get('start_delay', stagger))
-            reactor.callLater(start_delay, self._startSource, source, d)
+            reactor.callLater(start_delay, self._startSource, source)
             stagger += self.stagger
 
         reactor.callLater(stagger, self.startWatchdog)

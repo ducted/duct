@@ -58,7 +58,6 @@ class RiemannTCP(Output):
     """
     def __init__(self, *a):
         Output.__init__(self, *a)
-        self.events = []
         self.t = task.LoopingCall(self.tick)
 
         self.inter = float(self.config.get('interval', 1.0))  # tick interval

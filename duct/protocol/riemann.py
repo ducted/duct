@@ -40,7 +40,7 @@ class RiemannProtobufMixin(object):
         """Encode a list of Duct events with protobuf"""
 
         message = proto_pb2.Msg(
-            events=[self.encodeEvent(e) for e in events if e._type=='riemann']
+            events=[self.encodeEvent(e) for e in events if e._type=='metric']
         )
 
         return message.SerializeToString()
