@@ -1,3 +1,11 @@
+"""
+.. module:: interfaces
+   :platform: Unix
+   :synopsis: Generic interfaces
+
+.. moduleauthor:: Colin Alston <colin@imcol.in>
+"""
+
 from zope.interface import Interface
 
 

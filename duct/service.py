@@ -1,3 +1,11 @@
+"""
+.. module:: service
+   :platform: Unix
+   :synopsis: Core service classes
+
+.. moduleauthor:: Colin Alston <colin@imcol.in>
+"""
+
 import time
 import sys
 import os
