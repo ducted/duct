@@ -22,14 +22,14 @@ to use for every source within that toolbox. ::
 
     toolbox:
       - name: linux_defaults
-      - defaults:
+        defaults:
           use_ssh: True
           interval: 10.0
-      - sources:
-        - service: memory
-          source: duct.sources.linux.basic.Memory
-        - service: cpu
-          source: duct.sources.linux.basic.CPU
+        sources:
+          - service: memory
+            source: duct.sources.linux.basic.Memory
+          - service: cpu
+            source: duct.sources.linux.basic.CPU
 
 Blueprints
 ==========
