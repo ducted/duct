@@ -55,3 +55,18 @@ class Tests(unittest.TestCase):
                 'ttl': 60,
                 'use_ssh': True,
            }, self._qb, FakeDuct())
+
+    def test_ssh_add_keyfile(self):
+        with open('temp_key', 'wt') as f:
+            f.write(testKey)
+
+        s = basic.LoadAverage({
+                'interval': 1.0,
+                'service': 'mem',
+                'ttl': 60,
+                'use_ssh': True,
+                'ssh_keyfile': 'temp_key',
+                'ssh_key': None,
+           }, self._qb, FakeDuct())
+
+

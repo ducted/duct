@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="ducted",
-    version='1.1',
+    version='1.2',
     url='http://github.com/ducted/duct',
     license='MIT',
     description="A monitoring agent and event processor",
