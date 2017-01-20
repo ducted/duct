@@ -21,7 +21,7 @@ A toolbox defines a set of sources without any unique options. It can also defin
 to use for every source within that toolbox. ::
 
     toolbox:
-      - name: linux_defaults
+      linux_defaults:
         defaults:
           use_ssh: True
           interval: 10.0
@@ -45,7 +45,7 @@ above to 3 hosts then the following configuration can be used. ::
         defaults:
           interval: 10.0
         sets:
-          - hostname:
+          hostname:
             - www01.acme.com
             - www02.acme.com
             - www03.acme.com

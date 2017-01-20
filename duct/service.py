@@ -52,35 +52,6 @@ class DuctService(service.Service):
         if os.path.exists('/var/lib/duct'):
             sys.path.append('/var/lib/duct')
 
-        if 'include_path' in config:
-            ipath = config['include_path']
-            if os.path.exists(ipath):
-                files = [
-                    os.path.join(ipath, f) for f in os.listdir(ipath)
-                        if (f.endswith('.yml') or f.endswith('.yaml'))
-                ]
-
-                for f in files:
-                    conf = yaml.load(open(f, 'rt'))
-                    for k,v in conf.items():
-                        if k in self.config:
-                            if both(v, self.config[k], dict):
-                                # Merge dicts
-                                for k2, v2 in v.items():
-                                    self.config[k][j2] = v2
-
-                            elif both(v, self.config[k], list):
-                                # Extend lists
-                                self.config[k].extend(v)
-                            else:
-                                # Overwrite
-                                self.config[k] = v
-                        else:
-                            self.config[k] = v
-                    log.msg('Loadded additional configuration from %s' % f)
-            else:
-                log.msg('Config Error: include_path %s does not exist' % ipath)
-
         # Read some config stuff
         self.debug = float(self.config.get('debug', False))
         self.ttl = float(self.config.get('ttl', 60.0))

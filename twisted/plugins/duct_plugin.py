@@ -1,5 +1,3 @@
-import yaml
-
 from zope.interface import implementer
  
 from twisted.python import usage
@@ -7,6 +5,7 @@ from twisted.plugin import IPlugin
 from twisted.application.service import IServiceMaker
  
 import duct
+from duct.configuration import ConfigFile
 
 
 class Options(usage.Options):
@@ -22,7 +21,6 @@ class DuctServiceMaker(object):
     options = Options
  
     def makeService(self, options):
-        config = yaml.load(open(options['config']))
-        return duct.makeService(config)
+        return duct.makeService(ConfigFile(options['config']))
  
 serviceMaker = DuctServiceMaker()
