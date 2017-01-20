@@ -153,7 +153,7 @@ class ConfigFile(object):
         if 'blueprint' in self.raw_config:
             del self.raw_config['blueprint']
 
-    def get(self, item, default):
+    def get(self, item, default=None):
         return self.raw_config.get(item, default)
 
     def __getitem__(self, item):
