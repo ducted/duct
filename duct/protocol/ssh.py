@@ -1,3 +1,5 @@
+import os
+
 from twisted.conch.ssh.keys import EncryptedKeyError, Key
 from twisted.conch.client.knownhosts import KnownHostsFile
 from twisted.conch.endpoints import SSHCommandClientEndpoint
