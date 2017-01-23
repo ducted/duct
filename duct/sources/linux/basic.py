@@ -262,6 +262,8 @@ class Memory(Source):
     def _parse_stats(self, mem):
         dat = {}
         for l in mem:
+            if not ':' in l:
+                continue
             k, v = l.replace(':', '').split()[:2]
             dat[k] = int(v)
 
