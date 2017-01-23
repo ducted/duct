@@ -1,3 +1,11 @@
+"""
+.. module:: utils
+   :platform: Unix
+   :synopsis: Utility wrappers for HTTP calls and process forks
+
+.. moduleauthor:: Colin Alston <colin@imcol.in>
+"""
+
 import signal
 import json
 import time

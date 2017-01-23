@@ -1,3 +1,11 @@
+"""
+.. module:: objects
+   :platform: Unix
+   :synopsis: Base classes for sources, outputs, and event objects
+
+.. moduleauthor:: Colin Alston <colin@imcol.in>
+"""
+
 import hashlib
 import re
 import time

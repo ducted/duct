@@ -1,5 +1,6 @@
 import time
 import json
+import os
 
 from twisted.trial import unittest
 
@@ -7,10 +8,9 @@ from twisted.internet import defer, reactor, error
 from twisted.internet.endpoints import TCP4ClientEndpoint, connectProtocol
 
 from duct.protocol import riemann, elasticsearch, opentsdb
-
 from duct.objects import Event
-
 from duct.utils import fork
+from duct.configuration import ConfigFile
 
 class Tests(unittest.TestCase):
     def setUp(self):
@@ -24,6 +24,61 @@ class Tests(unittest.TestCase):
     def _fake_request(self, result, *a, **kw):
         self.last_request = (a, kw)
         return result
+
+    def test_config_parser(self):
+        testConfig = """outputs:
+    - output: duct.outputs.logger.Logger
+interval: 1.0
+ssh_username: colin
+include_path: testdir
+sources:
+    - service: memory
+      source: duct.sources.linux.basic.Memory
+      interval: 10.0"""
+
+        confinclude ="""toolbox:
+  standard:
+    defaults:
+      use_ssh: True
+      interval: 1
+    sources:
+      - service: memory
+        source: duct.sources.linux.basic.Memory
+      - service: cpu
+        source: duct.sources.linux.basic.CPU
+blueprint:
+  - toolbox: standard
+    defaults:
+      interval: 2
+    sets:
+      hostname:
+        - test1
+        - test2
+        - test3
+      use_ssh:
+        - True
+        - False\n"""
+        
+        if not os.path.exists('testdir'):
+            os.mkdir('testdir')
+        f = open('testdir/test.yaml', 'wt')
+        f.write(confinclude)
+        f.close()
+
+        f = open('testconf.yaml', 'wt')
+        f.write(testConfig)
+        f.close()
+
+        c = ConfigFile('testconf.yaml')
+
+        sources = c.get('sources')
+
+        host3 = [i for i in sources if i.get('hostname') == 'test3']
+
+        self.assertEquals(len(host3), 4)
+        host3_ssh = [i for i in sources if
+            i.get('hostname') == 'test3' and i.get('use_ssh') == True]
+        self.assertEquals(len(host3_ssh), 2)
 
     @defer.inlineCallbacks
     def test_elasticsearch_proto(self):

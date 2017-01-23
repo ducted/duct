@@ -14,11 +14,12 @@ yet "powerful" plugin mechanism to expand its capabilities.
 Contents:
 
 .. toctree::
-    :maxdepth: 2
+    :maxdepth: 3
 
     start
     sources
     outputs
+    blueprints
     examples
 
 
