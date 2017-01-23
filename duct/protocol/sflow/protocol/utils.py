@@ -4,13 +4,13 @@ import struct, socket
 def unpack_address(u):
     addrtype = u.unpack_uint()
 
-    if self.addrtype == 1:
-        self.address = u.unpack_fopaque(4)
+    if addrtype == 1:
+        address = u.unpack_fopaque(4)
 
-    if self.addrtype == 2:
-        self.address = u.unpack_fopaque(16)
+    if addrtype == 2:
+        address = u.unpack_fopaque(16)
     
-    return self.address
+    return address
 
 class IPv4Address(object):
     def __init__(self, addr_int):
