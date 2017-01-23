@@ -122,6 +122,21 @@ SwapCached:            0 kB\n"""
 
         self.assertEquals(avail, 5631108)
 
+        out = """MemTotal:        8048992 kB
+MemFree:         2774664 kB
+Buffers:          145408 kB
+Cached:          3183724 kB
+SwapCached:            0 kB\n"""
+        event = s._parse_stats(out.split('\n'))
+
+        used, total = event.description.split()[-1].split('/')
+        used = int(used)
+        total = int(total)
+        avail = total - used
+
+        self.assertEquals(avail, 6103796)
+
+
     def test_basic_load(self):
         self.skip_if_no_hostname()
         s = basic.LoadAverage(
