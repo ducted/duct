@@ -27,7 +27,7 @@ evaluation=10.0 - ((float(5 * error + warning + refactor + convention) / stateme
 
 [TYPECHECK]
 ignore-mixin-members=yes
-ignored-modules=twisted.internet.reactor
+ignored-modules=twisted.internet.reactor,zope.interface
 ignored-classes=optparse.Values,thread._local,_thread._local
 # List of members which are set dynamically and missed by pylint inference
 # system, and so shouldn't trigger E1101 when accessed. Python regular

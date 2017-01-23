@@ -31,6 +31,11 @@ class Tests(unittest.TestCase):
 interval: 1.0
 ssh_username: colin
 include_path: testdir
+mergehash:
+    test:
+        foo: bar
+    test2:
+        bar: baz
 sources:
     - service: memory
       source: duct.sources.linux.basic.Memory
@@ -57,7 +62,16 @@ blueprint:
         - test3
       use_ssh:
         - True
-        - False\n"""
+        - False
+mergehash:
+    test:
+        bar: baz
+    test3:
+        foo: bar
+sources:
+    - service: memory
+      source: duct.sources.linux.basic.Memory
+      interval: 5.0\n"""
         
         if not os.path.exists('testdir'):
             os.mkdir('testdir')
@@ -70,6 +84,11 @@ blueprint:
         f.close()
 
         c = ConfigFile('testconf.yaml')
+
+        merged = c.get('mergehash')
+        self.assertEquals(merged['test3']['foo'], 'bar')
+        self.assertEquals(merged['test']['bar'], 'baz')
+        self.assertEquals(merged['test'].get('foo'), None)
 
         sources = c.get('sources')
 

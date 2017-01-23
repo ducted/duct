@@ -86,7 +86,7 @@ class ConfigFile(object):
                                 if both(v, self.raw_config[k], dict):
                                     # Merge dicts
                                     for k2, v2 in v.items():
-                                        self.raw_config[k][j2] = v2
+                                        self.raw_config[k][k2] = v2
 
                                 elif both(v, self.raw_config[k], list):
                                     # Extend lists
