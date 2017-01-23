@@ -61,7 +61,7 @@ class Event(object):
         self.attributes = attributes
         self.aggregation = aggregation
         self._type = type
-        
+
         if evtime:
             self.time = evtime
         else:
@@ -75,7 +75,7 @@ class Event(object):
         return self.hostname + '.' + self.service
 
     def __repr__(self):
-        ser = ['%s=%s' % (k, repr(v)) for k,v in dict(self).items()]
+        ser = ['%s=%s' % (k, repr(v)) for k, v in dict(self).items()]
 
         return "<Event %s>" % (', '.join(ser))
 
@@ -198,27 +198,29 @@ class Source(object):
 
         self.ssh_host = self.config.get('ssh_host', self.hostname)
 
-        self.known_hosts = self.config.get('ssh_knownhosts_file',
-            self.duct.config.get('ssh_knownhosts_file', None))
+        self.known_hosts = self.config.get(
+            'ssh_knownhosts_file',
+            self.duct.config.get('ssh_knownhosts_file', None)
+        )
 
-        self.ssh_keyfile = self.config.get('ssh_keyfile',
-            self.duct.config.get('ssh_keyfile', None))
+        self.ssh_keyfile = self.config.get(
+            'ssh_keyfile', self.duct.config.get('ssh_keyfile', None))
 
-        self.ssh_key = self.config.get('ssh_key',
-            self.duct.config.get('ssh_key', None))
+        self.ssh_key = self.config.get(
+            'ssh_key', self.duct.config.get('ssh_key', None))
 
         # Not sure why you'd bother but maybe you've got a weird policy
-        self.ssh_keypass = self.config.get('ssh_keypass',
-            self.duct.config.get('ssh_keypass', None))
+        self.ssh_keypass = self.config.get(
+            'ssh_keypass', self.duct.config.get('ssh_keypass', None))
 
-        self.ssh_user = self.config.get('ssh_username',
-            self.duct.config.get('ssh_username', None))
+        self.ssh_user = self.config.get(
+            'ssh_username', self.duct.config.get('ssh_username', None))
 
-        self.ssh_password = self.config.get('ssh_password',
-            self.duct.config.get('ssh_password', None))
+        self.ssh_password = self.config.get(
+            'ssh_password', self.duct.config.get('ssh_password', None))
 
-        self.ssh_port = self.config.get('ssh_port',
-            self.duct.config.get('ssh_port', 22))
+        self.ssh_port = self.config.get(
+            'ssh_port', self.duct.config.get('ssh_port', 22))
 
         # Verify config to see if we're good to go
 
@@ -232,11 +234,12 @@ class Source(object):
 
         self.ssh_keydb = []
 
-        cHash = hashlib.sha1(':'.join((
-                        self.ssh_host, self.ssh_user, str(self.ssh_port),
-                        str(self.ssh_password), str(self.ssh_key),
-                        str(self.ssh_keyfile)
-                    )).encode()).hexdigest()
+        cHash = hashlib.sha1(
+            ':'.join((
+                self.ssh_host, self.ssh_user, str(self.ssh_port),
+                str(self.ssh_password), str(self.ssh_key),
+                str(self.ssh_keyfile)
+            )).encode()).hexdigest()
 
         if cHash in self.duct.hostConnectorCache:
             self.ssh_client = self.duct.hostConnectorCache.get(cHash)
@@ -244,8 +247,9 @@ class Source(object):
         else:
             self.ssh_connector = True
             self.ssh_client = ssh.SSHClient(self.ssh_host, self.ssh_user,
-                    self.ssh_port, password=self.ssh_password,
-                    knownhosts=self.known_hosts)
+                                            self.ssh_port,
+                                            password=self.ssh_password,
+                                            knownhosts=self.known_hosts)
 
             if self.ssh_keyfile:
                 self.ssh_client.addKeyFile(self.ssh_keyfile, self.ssh_keypass)
@@ -305,7 +309,7 @@ class Source(object):
     def tick(self):
         """Called for every timer tick. Calls self.get which can be a deferred
         and passes that result back to the queueBack method
-        
+
         Returns a deferred"""
 
         if self.sync:
@@ -325,7 +329,7 @@ class Source(object):
         self.running = False
 
     def createEvent(self, state, description, metric, prefix=None,
-            hostname=None, aggregation=None, evtime=None):
+                    hostname=None, aggregation=None, evtime=None):
         """Creates an Event object from the Source configuration"""
         if prefix:
             service_name = self.service + "." + prefix
@@ -333,19 +337,20 @@ class Source(object):
             service_name = self.service
 
         return Event(state, service_name, description, metric, self.ttl,
-            hostname=hostname or self.hostname, aggregation=aggregation,
-            evtime=evtime, tags=self.tags, attributes=self.attributes
-        )
+                     hostname=hostname or self.hostname,
+                     aggregation=aggregation,
+                     evtime=evtime, tags=self.tags, attributes=self.attributes)
 
     def createLog(self, type, data, evtime=None, hostname=None):
         """Creates an Event object from the Source configuration"""
 
         return Event(None, type, data, 0, self.ttl,
-            hostname=hostname or self.hostname, evtime=evtime, tags=self.tags, type='log'
-        )
+                     hostname=hostname or self.hostname, evtime=evtime,
+                     tags=self.tags, type='log')
 
     def get(self):
         raise NotImplementedError()
 
     def sshGet(self):
-        raise NotImplementedError("This source does not implement SSH remote checks")
+        raise NotImplementedError(
+            "This source does not implement SSH remote checks")
