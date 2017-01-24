@@ -262,10 +262,15 @@ class Memory(Source):
     def _parse_stats(self, mem):
         dat = {}
         for l in mem:
+            if ':' not in l:
+                continue
             k, v = l.replace(':', '').split()[:2]
             dat[k] = int(v)
 
-        free = dat['MemFree'] + dat['Buffers'] + dat['Cached']
+        if 'MemAvailable' in dat:
+            free = dat['MemAvailable']
+        else:
+            free = dat['MemFree'] + dat['Buffers'] + dat['Cached']
         total = dat['MemTotal']
         used = total - free
 
