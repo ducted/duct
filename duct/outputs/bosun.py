@@ -1,12 +1,15 @@
-import time
+"""
+.. module:: bosun
+   :synopsis: Bosun output
+
+.. moduleauthor:: Colin Alston <colin@imcol.in>
+"""
+
+
 import json
-import datetime
+import base64
 
-from twisted.internet import reactor, defer, task
-from twisted.python import log
-
-from duct.objects import Output
-from duct.protocol.opentsdb import OpenTSDBClient
+from twisted.internet import defer
 
 from duct.outputs import opentsdb
 from duct.utils import HTTPRequest
@@ -39,32 +42,36 @@ class Bosun(opentsdb.OpenTSDB):
         self.metacache = {}
 
     def createMetadata(self, metas):
+        """Create metadata objects for new service keys
+        """
         headers = {}
         path = '/api/metadata/put'
         if self.user:
-            authorization = b64encode('%s:%s' % (self.user, self.password)).decode()
+            authorization = base64.b64encode('%s:%s' % (self.user,
+                                                        self.password)
+                                            ).decode()
             headers['Authorization'] = ['Basic ' + authorization]
 
-        return HTTPRequest().getBody(
-            self.url + path, 'POST', headers=headers, data=json.dumps(metas).encode())
+        return HTTPRequest().getBody(self.url + path, 'POST', headers=headers,
+                                     data=json.dumps(metas).encode())
 
     @defer.inlineCallbacks
     def sendEvents(self, events):
         tsdbEvents = []
         metadataBatch = []
-        for e in events:
-            if not self.metacache.get(e.service):
+        for event in events:
+            if not self.metacache.get(event.service):
                 metadataBatch.append({
-                    "Metric": e.service,
+                    "Metric": event.service,
                     "Name": "rate",
                     "Value": "gauge"
                 })
-                self.metacache[e.service] = True
+                self.metacache[event.service] = True
 
-            tsdbEvents.append(self.transformEvent(e))
+            tsdbEvents.append(self.transformEvent(event))
 
         if metadataBatch:
-            meta = yield self.createMetadata(metadataBatch)
+            yield self.createMetadata(metadataBatch)
 
         result = yield self.client.put(tsdbEvents)
 

@@ -1,3 +1,10 @@
+"""
+.. module:: elasticsearch
+   :synopsis: Elasticsearch protocol module
+
+.. moduleauthor:: Colin Alston <colin@imcol.in>
+"""
+
 import time
 import uuid
 import json
@@ -21,7 +28,8 @@ class ElasticSearch(object):
     def _request(self, path, data=None, method='GET'):
         headers = {}
         if self.user:
-            authorization = b64encode('%s:%s' % (self.user, self.password)).decode()
+            authorization = b64encode('%s:%s' % (self.user, self.password)
+                                     ).decode()
             headers['Authorization'] = ['Basic ' + authorization]
 
         return utils.HTTPRequest().getJson(
@@ -31,35 +39,43 @@ class ElasticSearch(object):
         return b64encode(uuid.uuid4().bytes).decode().rstrip('=')
 
     def stats(self):
+        """Return statistics for the cluster
+        """
         return self._request('/_cluster/stats')
 
     def node_stats(self):
+        """Return statistics for this node
+        """
         return self._request('/_nodes/stats')
 
-    def insertIndex(self, type, data):
-        return self._request('/%s/%s/%s' % (
-                self._get_index(), type, self._gen_id()
-            ), json.dumps(data), 'PUT')
+    def insertIndex(self, index_type, data):
+        """Insert an index
+        """
+        return self._request('/%s/%s/%s' % (self._get_index(), index_type,
+                                            self._gen_id()),
+                             json.dumps(data), 'PUT')
 
     def bulkIndex(self, data):
+        """Insert many indicies
+        """
         serdata = ""
 
         for row in data:
             if '_id' in row:
-                id = row['id']
-                del row['id']
+                iid = row['id']
+                row.pop('id')
             else:
-                id = self._gen_id()
+                iid = self._gen_id()
 
-            d = {
+            data = {
                 "index": {
                     "_index": self._get_index(),
                     "_type": row.get('type', 'event'),
-                    "_id": id,
+                    "_id": iid,
                 }
             }
 
-            serdata += json.dumps(d) + '\n'
+            serdata += json.dumps(data) + '\n'
             serdata += json.dumps(row) + '\n'
 
         return self._request('/_bulk', serdata, 'PUT')

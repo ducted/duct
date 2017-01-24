@@ -52,7 +52,7 @@ class Tests(unittest.TestCase):
 
         out.eventsReceived([self.event])
 
-        yield out.t.tick()
+        yield out.timer.tick()
 
         meta, metric = self.last_request[0][1].strip('\n').split('\n')
         requestData = json.loads(metric)
@@ -70,7 +70,7 @@ class Tests(unittest.TestCase):
         
         out.eventsReceived([self.event])
 
-        yield out.t.tick()
+        yield out.timer.tick()
         
         requestData = json.loads(self.last_request[0][1])[0]
 

@@ -1,26 +1,18 @@
 """
 .. module:: utils
-   :platform: Unix
    :synopsis: Utility wrappers for HTTP calls and process forks
 
 .. moduleauthor:: Colin Alston <colin@imcol.in>
 """
 
-import signal
 import json
 import time
-import urllib
 import os
 
 try:
     from StringIO import StringIO
 except ImportError:
     from io import StringIO
-
-try:
-    from exceptions import IOError
-except ImportError:
-    pass
 
 from zope.interface import implementer
 
@@ -34,18 +26,24 @@ from twisted.python import log
 from twisted.internet.endpoints import clientFromString
 
 class SocketyAgent(Agent):
-    def __init__(self, reactor, path, **kwargs):
+    """HTTP agent for connecting to UNIX sockets
+    """
+    def __init__(self, react, path, **kwargs):
+        Agent.__init__(self, react, **kwargs)
         self.path = path
-        Agent.__init__(self, reactor, **kwargs)
 
-    def _getEndpoint(self, scheme, host, port):
-        client = clientFromString(reactor, self.path)
-        return client
+    def _getEndpoint(self, *_a):
+        return clientFromString(reactor, self.path)
 
 class Timeout(Exception):
     """
     Raised to notify that an operation exceeded its timeout.
     """
+
+def reverseNameFromIPAddress(address):
+    """Returns PTR record for IP
+    """
+    return '.'.join(reversed(address.split('.'))) + '.in-addr.arpa'
 
 class Resolver(object):
     """Helper class for DNS resolution
@@ -53,17 +51,15 @@ class Resolver(object):
 
     def __init__(self):
         self.recs = {}
-        
         self.resolver = client.getResolver()
 
-    def reverseNameFromIPAddress(self, address):
-        return '.'.join(reversed(address.split('.'))) + '.in-addr.arpa'
-
     def reverse(self, ip):
+        """Perform a reverse lookup on `ip`
+        """
         def _ret(result, ip):
             host = ip
             if isinstance(result, tuple):
-                answers, authority, additional = result
+                answers, _, _ = result
                 if isinstance(answers, list):
                     ttl = answers[0].payload.ttl
                     host = answers[0].payload.name.name
@@ -72,13 +68,13 @@ class Resolver(object):
             return host
 
         if ip in self.recs:
-            host, ttl, t = self.recs[ip]
+            host, ttl, ti = self.recs[ip]
 
-            if (time.time() - t) < ttl:
+            if (time.time() - ti) < ttl:
                 return defer.maybeDeferred(lambda x: x, host)
 
         return self.resolver.lookupPointer(
-            name=self.reverseNameFromIPAddress(address=ip)
+            name=reverseNameFromIPAddress(address=ip)
         ).addCallback(_ret, ip).addErrback(_ret, ip)
 
 class BodyReceiver(protocol.Protocol):
@@ -90,7 +86,7 @@ class BodyReceiver(protocol.Protocol):
     def dataReceived(self, data):
         self.data.write(data.decode())
 
-    def connectionLost(self, reason):
+    def connectionLost(self, *_r):
         self.data.seek(0)
         self.finished.callback(self.data)
 
@@ -101,15 +97,21 @@ class StringProducer(object):
     def __init__(self, body):
         self.body = body
         self.length = len(body)
- 
+
     def startProducing(self, consumer):
+        """Start writing content to consumer
+        """
         consumer.write(self.body)
         return defer.succeed(None)
- 
+
     def pauseProducing(self):
+        """Producing paused
+        """
         pass
- 
+
     def stopProducing(self):
+        """Producing stopped
+        """
         pass
 
 class ProcessProtocol(protocol.ProcessProtocol):
@@ -135,10 +137,9 @@ class ProcessProtocol(protocol.ProcessProtocol):
         out = self.outBuf.getvalue()
         err = self.errBuf.getvalue()
 
-        e = reason.value
-        code = e.exitCode
+        code = reason.value.exitCode
 
-        if e.signal:
+        if reason.value.signal:
             self.deferred.errback(reason)
         else:
             self.deferred.callback((out, err, code))
@@ -146,9 +147,12 @@ class ProcessProtocol(protocol.ProcessProtocol):
     def connectionMade(self):
         @defer.inlineCallbacks
         def killIfAlive():
+            """Terminate after timeout if still alive
+            """
             try:
                 yield self.transport.signalProcess('KILL')
-                log.msg('Killed source proccess: Timeout %s exceeded' % self.timeout)
+                log.msg('Killed source proccess: Timeout %s exceeded'
+                        % self.timeout)
             except error.ProcessExitedAlready:
                 pass
 
@@ -167,31 +171,38 @@ def fork(executable, args=(), env={}, path=None, timeout=3600):
     :param timeout: Kill the child process if timeout is exceeded
     :type timeout: int.
     """
-    d = defer.Deferred()
-    p = ProcessProtocol(d, timeout)
-    reactor.spawnProcess(p, executable, (executable,)+tuple(args), env, path)
-    return d
+    de = defer.Deferred()
+    proc = ProcessProtocol(de, timeout)
+    reactor.spawnProcess(proc, executable, (executable,)+tuple(args), env,
+                         path)
+    return de
 
 try:
     from twisted.internet.ssl import ClientContextFactory
 
     class WebClientContextFactory(ClientContextFactory):
-        def getContext(self, hostname, port):
+        """SSL Context factory
+        """
+        def getContext(self, *_a):
             return ClientContextFactory.getContext(self)
-    SSL=True
+    SSL = True
 except:
-    SSL=False
+    SSL = False
 
 try:
-    from twisted.web import client
-    client._HTTP11ClientFactory.noisy = False
-    client.HTTPClientFactory.noisy = False
+    from twisted.web import client as twclient
+    twclient._HTTP11ClientFactory.noisy = False
+    twclient.HTTPClientFactory.noisy = False
 except:
     pass
 
 class HTTPRequest(object):
+    """Helper class for creating HTTP requests.
+       Accepts a `timeout` to cancel requests which take too long
+    """
     def __init__(self, timeout=120):
         self.timeout = timeout
+        self.timedout = None
 
     def abort_request(self, request):
         """Called to abort request on timeout"""
@@ -201,14 +212,16 @@ class HTTPRequest(object):
                 request.cancel()
             except error.AlreadyCancelled:
                 return
-        
+
     @defer.inlineCallbacks
     def response(self, request):
+        """Response received
+        """
         if request.length:
-            d = defer.Deferred()
-            request.deliverBody(BodyReceiver(d))
-            b = yield d
-            body = b.read()
+            de = defer.Deferred()
+            request.deliverBody(BodyReceiver(de))
+            body = yield de
+            body = body.read()
         else:
             body = ""
 
@@ -217,7 +230,10 @@ class HTTPRequest(object):
 
         defer.returnValue(body)
 
-    def request(self, url, method='GET', headers={}, data=None, socket=None, follow_redirect=False):
+    def request(self, url, method='GET', headers={}, data=None, socket=None,
+                follow_redirect=False):
+        """Perform an HTTP request
+        """
         self.timedout = False
 
         if socket:
@@ -230,17 +246,18 @@ class HTTPRequest(object):
                     raise Exception('HTTPS requested but not supported')
             else:
                 agent = Agent(reactor)
-        
+
         request = agent.request(method.encode(), url.encode(),
-            Headers(headers),
-            StringProducer(data) if data else None
-        )
+                                Headers(headers),
+                                StringProducer(data) if data else None)
 
         if self.timeout:
             timer = reactor.callLater(self.timeout, self.abort_request,
-                request)
+                                      request)
 
             def timeoutProxy(request):
+                """Wrapper function to time-out requests
+                """
                 if timer.active():
                     timer.cancel()
 
@@ -264,11 +281,14 @@ class HTTPRequest(object):
                                             data=data, socket=socket,
                                             follow_redirect=follow_redirect)
                     else:
-                        raise Exception("Server responded with %s code but no location header" % request.code)
+                        raise Exception("Server responded with %s code but no"
+                                        " location header" % request.code)
 
                 return self.response(request)
 
             def requestAborted(failure):
+                """Request was aborted due to timeout
+                """
                 if timer.active():
                     timer.cancel()
 
@@ -289,7 +309,7 @@ class HTTPRequest(object):
         """Make an HTTP request and return the body
         """
 
-        if not 'User-Agent' in headers:
+        if 'User-Agent' not in headers:
             headers['User-Agent'] = ['Ductd/1']
 
         return self.request(url, method, headers, data, socket)
@@ -298,7 +318,7 @@ class HTTPRequest(object):
     def getJson(self, url, method='GET', headers={}, data=None, socket=None):
         """Fetch a JSON result via HTTP
         """
-        if not 'Content-Type' in headers:
+        if 'Content-Type' not in headers:
             headers['Content-Type'] = ['application/json']
 
         body = yield self.getBody(url, method, headers, data, socket)
@@ -307,7 +327,7 @@ class HTTPRequest(object):
             if not body:
                 defer.returnValue({})
             response = json.loads(body)
-        except ValueError as e:
+        except ValueError:
             raise ValueError("Response was not JSON: %s" % repr(body))
 
         defer.returnValue(response)
@@ -340,51 +360,51 @@ class PersistentCache(object):
         cache_file.close()
         return cache
 
-    def _write_cache(self, d):
+    def _write_cache(self, data):
         cache_file = open(self.location, 'w')
-        cache_file.write(json.dumps(d))
+        cache_file.write(json.dumps(data))
         cache_file.close()
 
     def _persist(self):
         cache = self._acquire_cache()
 
-        for k, v in self.store.items():
-            cache[k] = v
+        for key, val in self.store.items():
+            cache[key] = val
 
         self._write_cache(cache)
 
     def _read(self):
         cache = self._acquire_cache()
-        for k, v in cache.items():
-            self.store[k] = v
+        for key, val in cache.items():
+            self.store[key] = val
 
-    def _remove_key(self, k):
+    def _remove_key(self, key):
         cache = self._acquire_cache()
-        if k in cache:
-            if k in cache:
-                del cache[k]
-            if k in self.store:
-                del self.store[k]
+        if key in cache:
+            if key in cache:
+                cache.pop(key)
+            if key in self.store:
+                self.store.pop(key)
             self._write_cache(cache)
 
     def expire(self, age):
         """Expire any items in the cache older than `age` seconds"""
         now = time.time()
         cache = self._acquire_cache()
-        
-        expired = [k for k, v in cache.items() if (now - v[0]) > age]
 
-        for k in expired:
-            if k in cache:
-                del cache[k]
-            if k in self.store:
-                del self.store[k]
+        expired = [key for key, val in cache.items() if (now - val[0]) > age]
+
+        for key in expired:
+            if key in cache:
+                cache.pop(key)
+            if key in self.store:
+                self.store.pop(key)
 
         self._write_cache(cache)
 
-    def set(self, k, v):
-        """Set a key `k` to value `v`"""
-        self.store[k] = (time.time(), v)
+    def set(self, key, val):
+        """Set a key to value `val`"""
+        self.store[key] = (time.time(), val)
         self._persist()
 
     def get(self, k):
@@ -406,4 +426,3 @@ class PersistentCache(object):
     def delete(self, k):
         """Remove key `k` from the cache"""
         self._remove_key(k)
-

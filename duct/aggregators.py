@@ -1,25 +1,33 @@
-def Counter32(a, b, delta):
+"""
+.. module:: aggregators
+   :synopsis: Aggregation functions
+
+.. moduleauthor:: Colin Alston <colin@imcol.in>
+"""
+
+
+def Counter32(al, br, delta):
     """32bit counter aggregator with wrapping
     """
-    if b < a:
-        c = 4294967295 - a
-        return (c + b) / float(delta)
+    if br < al:
+        ch = 4294967295 - al
+        return (ch + br) / float(delta)
 
-    return (b - a) / float(delta)
+    return (br - al) / float(delta)
 
-def Counter64(a, b, delta):
+def Counter64(al, br, delta):
     """64bit counter aggregator with wrapping
     """
-    if b < a:
-        c = 18446744073709551615 - a
-        return (c + b) / float(delta)
+    if br < al:
+        ch = 18446744073709551615 - al
+        return (ch + br) / float(delta)
 
-    return (b - a) / float(delta)
+    return (br - al) / float(delta)
 
-def Counter(a, b, delta):
+def Counter(al, br, delta):
     """Counter derivative
     """
-    if b < a:
-        return None 
+    if br < al:
+        return None
 
-    return (b - a) / float(delta)
+    return (br - al) / float(delta)

@@ -33,12 +33,12 @@ class IP(object):
 class EchoPacket(object):
     """ICMP Echo packet encoder and decoder
     """
-    def __init__(self, seq=0, id=None, data=None, packet=None):
+    def __init__(self, seq=0, eid=None, data=None, packet=None):
         if packet:
             self.decodePacket(packet)
             self.packet = packet
         else:
-            self.id = id
+            self.eid = eid
             self.seq = seq
             self.data = data
             self.encodePacket()
@@ -63,7 +63,7 @@ class EchoPacket(object):
     def encodePacket(self):
         head = struct.pack('!bb', 8, 0)
 
-        echo = struct.pack('!HH', self.seq, self.id)
+        echo = struct.pack('!HH', self.seq, self.eid)
 
         chk = self.calculateChecksum(
             head + '\x00\x00' + echo + self.data)
@@ -73,7 +73,7 @@ class EchoPacket(object):
         self.packet = head + chk + echo + self.data
 
     def decodePacket(self, packet):
-        self.type, self.code, self.chk, self.seq, self.id = struct.unpack(
+        self.type, self.code, self.chk, self.seq, self.eid = struct.unpack(
             '!bbHHH', packet[:8])
 
         self.data = packet[8:]
@@ -118,7 +118,7 @@ class ICMPPing(DatagramProtocol):
 
         if icmp.valid and icmp.code==0 and icmp.type==0:
             # Check ID is from this pinger
-            if (icmp.id-icmp.seq) == self.id_base:
+            if (icmp.eid - icmp.seq) == self.id_base:
                 ts = icmp.data[:8]
                 data = icmp.data[8:]
                 delta = (now - struct.unpack('!Q', ts)[0])/1000.0
@@ -145,7 +145,7 @@ class ICMPPing(DatagramProtocol):
         us = int(time.time()*1000000)
         data = '%s%s' % (struct.pack('!Q', us), md)
 
-        pkt = EchoPacket(seq=self.seq, id=self.id_base+self.seq, data=data)
+        pkt = EchoPacket(seq=self.seq, eid=self.id_base+self.seq, data=data)
 
         self.transport.write(pkt.packet)
         self.seq += 1

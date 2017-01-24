@@ -117,7 +117,7 @@ class sFlowReceiver(server.DatagramReceiver):
             return self.resolver.reverse(host).addCallback(
                 queueFlow).addErrback(queueFlow)
         else:
-            return queueFlow(None, host)
+            return queueFlow(host)
 
     def receive_counter(self, counter, host):
         def _hostcb(host):
@@ -168,7 +168,7 @@ class sFlowReceiver(server.DatagramReceiver):
             return self.resolver.reverse(host).addCallback(
                 _hostcb).addErrback(_hostcb)
         else:
-            return _hostcb(None, host)
+            return _hostcb(host)
 
 @implementer(IDuctSource)
 class sFlow(Source):

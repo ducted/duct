@@ -1,13 +1,18 @@
-import time
-import json
+"""
+.. module:: elasticsearch
+   :synopsis: Elasticsearch event output
+
+.. moduleauthor:: Colin Alston <colin@imcol.in>
+"""
 import datetime
 
-from twisted.internet import reactor, defer, task
+from twisted.internet import defer, task
 from twisted.python import log
 
 from duct.protocol import elasticsearch
 
 from duct.objects import Output
+
 
 class ElasticSearch(Output):
     """ElasticSearch HTTP API output
@@ -33,7 +38,7 @@ class ElasticSearch(Output):
     def __init__(self, *a):
         Output.__init__(self, *a)
         self.events = []
-        self.t = task.LoopingCall(self.tick)
+        self.timer = task.LoopingCall(self.tick)
 
         self.inter = float(self.config.get('interval', 1.0))  # tick interval
         self.maxsize = int(self.config.get('maxsize', 250000))
@@ -47,6 +52,8 @@ class ElasticSearch(Output):
 
         self.index = self.config.get('index', 'duct-%Y.%m.%d')
 
+        self.client = None
+
         if maxrate > 0:
             self.queueDepth = int(maxrate * self.inter)
         else:
@@ -57,29 +64,34 @@ class ElasticSearch(Output):
         """
 
         self.client = elasticsearch.ElasticSearch(self.url, self.user,
-            self.password, self.index)
+                                                  self.password, self.index)
 
-        self.t.start(self.inter)
+        self.timer.start(self.inter)
 
     def stop(self):
         """Stop this client.
         """
-        self.t.stop()
+        self.timer.stop()
 
-    def transformEvent(self, e):
-        d = dict(e)
-        t = datetime.datetime.utcfromtimestamp(e.time)
-        d['metric'] = float(e.metric)
-        d['@timestamp'] = t.isoformat()
+    def transformEvent(self, event):
+        """Transform an event into a format useful to Elasticsearch
+        """
+        data = dict(event)
+        timestamp = datetime.datetime.utcfromtimestamp(event.time)
+        data['metric'] = float(event.metric)
+        data['@timestamp'] = timestamp.isoformat()
 
-        if 'ttl' in d:
+        if 'ttl' in data:
             # Useless field to Elasticsearch
-            del d['ttl']
+            data.pop('ttl')
 
-        return d
+        return data
 
     def sendEvents(self, events):
-        return self.client.bulkIndex([self.transformEvent(e) for e in events])
+        """Send events to Elasticsearch in bulk
+        """
+        return self.client.bulkIndex([self.transformEvent(event)
+                                      for event in events])
 
     @defer.inlineCallbacks
     def tick(self):
@@ -99,8 +111,8 @@ class ElasticSearch(Output):
                 if result.get('errors', False):
                     log.msg(repr(result))
 
-            except Exception as e:
-                log.msg('Could not connect to elasticsearch ' + str(e))
+            except Exception as ex:
+                log.msg('Could not connect to elasticsearch ' + str(ex))
                 self.events.extend(events)
 
 # Backward compatibility stub

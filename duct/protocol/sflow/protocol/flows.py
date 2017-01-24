@@ -181,7 +181,7 @@ class ISO8023Header(object):
 
         try:
             ethernet = frame.parse(data[:14])
-        except adapters.MappingError:
+        except MappingError:
             print("Broken ethernet header")
             self.frame = None
             print(repr(data))

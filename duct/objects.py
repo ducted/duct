@@ -1,26 +1,20 @@
 """
 .. module:: objects
-   :platform: Unix
    :synopsis: Base classes for sources, outputs, and event objects
 
 .. moduleauthor:: Colin Alston <colin@imcol.in>
 """
 
 import hashlib
-import re
 import time
 import socket
-
-try:
-    from exceptions import NotImplementedError
-except ImportError:
-    pass
 
 from twisted.internet import task, defer
 from twisted.python import log
 
 from duct.utils import fork
 from duct.protocol import ssh
+
 
 class Event(object):
     """Duct Event object
@@ -71,16 +65,18 @@ class Event(object):
         else:
             self.hostname = socket.gethostbyaddr(socket.gethostname())[0]
 
-    def id(self):
+    def eid(self):
+        """Return a unique identifier for this event
+        """
         return self.hostname + '.' + self.service
 
     def __repr__(self):
-        ser = ['%s=%s' % (k, repr(v)) for k, v in dict(self).items()]
+        ser = ['%s=%s' % (key, repr(val)) for key, val in dict(self).items()]
 
         return "<Event %s>" % (', '.join(ser))
 
     def __iter__(self):
-        d = {
+        obj = {
             'hostname': self.hostname,
             'state': self.state,
             'service': self.service,
@@ -93,16 +89,16 @@ class Event(object):
         }
 
         if self.attributes:
-            d['attributes'] = self.attributes
+            obj['attributes'] = self.attributes
 
-        for k, v in d.items():
-            yield k, v
+        for key, val in obj.items():
+            yield key, val
 
-    def copyWithMetric(self, m):
-        return Event(
-            self.state, self.service, self.description, m, self.ttl, self.tags,
-            self.hostname, self.aggregation
-        )
+    def copyWithMetric(self, metric):
+        """Create a copy of this event with a different metric value
+        """
+        return Event(self.state, self.service, self.description, metric,
+                     self.ttl, self.tags, self.hostname, self.aggregation)
 
 class Output(object):
     """Output parent class
@@ -162,8 +158,8 @@ class Source(object):
         self.config = config
         self.duct = duct
 
-        self.t = task.LoopingCall(self.tick)
-        self.td = None
+        self.timer = task.LoopingCall(self.tick)
+        self.timerDeferred = None
         self.attributes = None
 
         self.service = config['service']
@@ -263,6 +259,8 @@ class Source(object):
         return lambda events: caller(self, events)
 
     def start(self):
+        """Called when source is started
+        """
         pass
 
     @defer.inlineCallbacks
@@ -270,23 +268,30 @@ class Source(object):
         """Starts the timer for this source"""
         yield defer.maybeDeferred(self.start)
 
-        self.td = self.t.start(self.inter)
+        self.timerDeferred = self.timer.start(self.inter)
 
         if self.use_ssh and self.ssh_connector:
             yield defer.maybeDeferred(self.ssh_client.connect)
 
 
     def stop(self):
+        """Called when source is stopped
+        """
         pass
 
     def stopTimer(self):
         """Stops the timer for this source"""
-        self.td = None
-        if self.t.running:
-            self.t.stop()
+        self.timerDeferred = None
+        if self.timer.running:
+            self.timer.stop()
         return defer.maybeDeferred(self.stop)
 
     def fork(self, *a, **kw):
+        """Wrapper function to execute another process
+
+           Passes off to either ssh or local system based on whether
+           use_ssh is set
+        """
         if self.use_ssh:
             return self.ssh_client.fork(*a, **kw)
         else:
@@ -323,8 +328,8 @@ class Source(object):
             if event:
                 self.queueBack(event)
 
-        except Exception as e:
-            log.msg("[%s] Unhandled error: %s" % (self.service, e))
+        except Exception as ex:
+            log.msg("[%s] Unhandled error: %s" % (self.service, ex))
 
         self.running = False
 
@@ -341,16 +346,21 @@ class Source(object):
                      aggregation=aggregation,
                      evtime=evtime, tags=self.tags, attributes=self.attributes)
 
-    def createLog(self, type, data, evtime=None, hostname=None):
+    def createLog(self, evtype, data, evtime=None, hostname=None):
         """Creates an Event object from the Source configuration"""
 
-        return Event(None, type, data, 0, self.ttl,
+        return Event(None, evtype, data, 0, self.ttl,
                      hostname=hostname or self.hostname, evtime=evtime,
                      tags=self.tags, type='log')
 
     def get(self):
+        """Get method for source called every `self.inter`
+           Should return a list of `Event` objects or `None`
+        """
         raise NotImplementedError()
 
     def sshGet(self):
+        """Get method for source if use_ssh is enabled
+        """
         raise NotImplementedError(
             "This source does not implement SSH remote checks")

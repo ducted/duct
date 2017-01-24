@@ -1,3 +1,9 @@
+"""
+.. module:: riemann
+   :synopsis: Riemann protocol module
+
+.. moduleauthor:: Colin Alston <colin@imcol.in>
+"""
 from duct.ihateprotobuf import proto_pb2
 from duct.interfaces import IDuctProtocol
 
@@ -8,7 +14,13 @@ from twisted.internet.protocol import DatagramProtocol
 from twisted.internet import protocol
 from twisted.python import log
 
+
 class RiemannProtobufMixin(object):
+    """Class mix-in for protocol buffer stuff
+    """
+    def __init__(self):
+        self.pressure = 0
+
     def encodeEvent(self, event):
         """Adapts an Event object to a Riemann protobuf event Event"""
         pbevent = proto_pb2.Event(
@@ -39,11 +51,10 @@ class RiemannProtobufMixin(object):
     def encodeMessage(self, events):
         """Encode a list of Duct events with protobuf"""
 
-        message = proto_pb2.Msg(
-            events=[self.encodeEvent(e) for e in events if e._type=='metric']
-        )
+        encoded = [self.encodeEvent(ev) for ev in events
+                   if ev._type == 'metric']
 
-        return message.SerializeToString()
+        return proto_pb2.Msg(events=encoded).SerializeToString()
 
     def decodeMessage(self, data):
         """Decode a protobuf message into a list of Duct events"""
@@ -51,7 +62,7 @@ class RiemannProtobufMixin(object):
         message.ParseFromString(data)
 
         return message
-    
+
     def sendEvents(self, events):
         """Send a Duct Event to Riemann"""
         self.pressure += 1
@@ -107,7 +118,8 @@ class RiemannClientFactory(protocol.ReconnectingClientFactory):
 
         self._do_failover(connector)
 
-        log.msg('Reconnecting to Riemann on %s:%s' % (connector.host, connector.port))
+        log.msg('Reconnecting to Riemann on %s:%s' % (connector.host,
+                                                      connector.port))
         protocol.ReconnectingClientFactory.clientConnectionLost(
             self, connector, reason)
 
@@ -117,7 +129,8 @@ class RiemannClientFactory(protocol.ReconnectingClientFactory):
 
         self._do_failover(connector)
 
-        log.msg('Reconnecting to Riemann on %s:%s' % (connector.host, connector.port))
+        log.msg('Reconnecting to Riemann on %s:%s' % (connector.host,
+                                                      connector.port))
         protocol.ReconnectingClientFactory.clientConnectionFailed(
             self, connector, reason)
 
@@ -132,5 +145,7 @@ class RiemannUDP(DatagramProtocol, RiemannProtobufMixin):
         self.pressure = 0
 
     def sendString(self, string):
+        """Write a string to the transport
+        """
         self.transport.write(string, (self.host, self.port))
         self.pressure -= 1
