@@ -19,6 +19,7 @@ setup(
     install_requires=[
         'Twisted',
         'PyYaml',
+        'pyOpenSSL',
         'protobuf',
         'construct<2.6',
         'pysnmp==4.2.5',

@@ -71,17 +71,17 @@ class TestLogs(unittest.TestCase):
         line = '192.168.0.102 - - [16/Jan/2015:11:11:45 +0200] "GET / HTTP/1.1" 200 709 "-" "My browser"'
 
         want = {
-            'status': 200, 
-            'request': 'GET / HTTP/1.1', 
-            'bytes': 709, 
-            'user-agent': 'My browser', 
-            'client': '192.168.0.102', 
+            'status': 200,
+            'request': 'GET / HTTP/1.1',
+            'bytes': 709,
+            'user-agent': 'My browser',
+            'client': '192.168.0.102',
             'time': datetime.datetime(2015, 1, 16, 11, 11, 45),
             'referer': None,
-            'logname': None, 
+            'logname': None,
             'user': None,
         }
-    
+
         p = log.parse(line)
 
         for k,v in want.items():

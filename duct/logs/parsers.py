@@ -33,7 +33,7 @@ class ApacheLogParser(object):
 
             # NCSA extended/combined log format
             'combined': r'%h %l %u %t \"%r\" %>s %b \"%{Referer}i\"'
-                        ' \"%{User-agent}i\"',
+                        r' \"%{User-agent}i\"',
         }
 
         self._names = []
@@ -112,7 +112,7 @@ class ApacheLogParser(object):
                 self._names.append(self.alias(element))
                 self._types.append(self.types.get(element, [None, str])[1])
 
-            subpattern = '(\\S*)'
+            subpattern = r'(\S*)'
 
             if hasquotes:
                 if element == '%r' or findreferreragent.search(element):
