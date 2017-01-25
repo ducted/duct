@@ -1,3 +1,10 @@
+"""
+.. module:: ipsec
+   :platform: unix
+   :synopsis: Some monitoring stuff for IPSEC tunnels
+
+.. moduleauthor:: Colin Alston <colin@imcol.in>
+"""
 from zope.interface import implementer
 
 from twisted.internet import defer
@@ -18,7 +25,7 @@ class StrongSwan(Source):
 
     @defer.inlineCallbacks
     def get(self):
-        out, err, code = yield self.fork('/usr/bin/sudo', args=(
+        out, _err, _code = yield self.fork('/usr/bin/sudo', args=(
             'ipsec', 'statusall'))
 
         connections = {}
@@ -54,14 +61,15 @@ class StrongSwan(Source):
 
                     if 'ESTABLISHED' in detail:
                         connections[con]['up'] = True
-    
+
         events = []
         for k, v in connections.items():
             if v['up']:
                 events.append(self.createEvent('ok', 'IPSec tunnel %s up' % k,
-                    1, prefix=k))
+                                               1, prefix=k))
             else:
-                events.append(self.createEvent('critical', 
-                    'IPSec tunnel %s down' % k, 0, prefix=k))
+                events.append(self.createEvent('critical',
+                                               'IPSec tunnel %s down' % k,
+                                               0, prefix=k))
 
         defer.returnValue(events)

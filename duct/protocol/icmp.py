@@ -1,3 +1,9 @@
+"""
+.. module:: icmp
+   :synopsis: Native ICMP protocol implementation
+
+.. moduleauthor:: Colin Alston <colin@imcol.in>
+"""
 import socket
 import time
 import fcntl
@@ -10,8 +16,10 @@ from twisted.internet import task, defer, reactor, udp
 from twisted.internet.protocol import DatagramProtocol
 from twisted.internet.interfaces import ISystemHandle
 
-# OMG SHUT UP
+
 class STFU(object):
+    """OMG SHUT UP
+    """
     msg = lambda x, y: None
 udp.log = STFU()
 
@@ -22,6 +30,8 @@ class IP(object):
         self.readPacket(packet)
 
     def readPacket(self, packet):
+        """Reads a raw IP packet
+        """
         vl = struct.unpack('!b', packet[0])[0]
         l = (vl & 0xf) * 4
 
@@ -43,16 +53,18 @@ class EchoPacket(object):
             self.data = data
             self.encodePacket()
 
-    def calculateChecksum(self, buffer):
-        nleft = len(buffer)
+    def calculateChecksum(self, buf):
+        """Calculate the ICMP ping checksum
+        """
+        nleft = len(buf)
         sum = 0
         pos = 0
         while nleft > 1:
-            sum = ord(buffer[pos]) * 256 + (ord(buffer[pos + 1]) + sum)
+            sum = ord(buf[pos]) * 256 + (ord(buf[pos + 1]) + sum)
             pos = pos + 2
             nleft = nleft - 2
         if nleft == 1:
-            sum = sum + ord(buffer[pos]) * 256
+            sum = sum + ord(buf[pos]) * 256
 
         sum = (sum >> 16) + (sum & 0xFFFF)
         sum += (sum >> 16)
@@ -61,6 +73,8 @@ class EchoPacket(object):
         return sum
 
     def encodePacket(self):
+        """Encode ICMP packet
+        """
         head = struct.pack('!bb', 8, 0)
 
         echo = struct.pack('!HH', self.seq, self.eid)
@@ -73,7 +87,9 @@ class EchoPacket(object):
         self.packet = head + chk + echo + self.data
 
     def decodePacket(self, packet):
-        self.type, self.code, self.chk, self.seq, self.eid = struct.unpack(
+        """Decode ICMP packet
+        """
+        self.icmp_type, self.code, self.chk, self.seq, self.eid = struct.unpack(
             '!bbHHH', packet[:8])
 
         self.data = packet[8:]
@@ -88,12 +104,14 @@ class EchoPacket(object):
 
     def __repr__(self):
         return "<type=%s code=%s chk=%s seq=%s data=%s valid=%s>" % (
-            self.type, self.code, self.chk, self.seq, len(self.data), self.valid)
+            self.icmp_type, self.code, self.chk, self.seq, len(self.data),
+            self.valid
+        )
 
 class ICMPPing(DatagramProtocol):
     """ICMP Ping implementation
     """
-    noisy=False
+    noisy = False
     def __init__(self, d, dst, count, inter=0.2, maxwait=1000, size=64):
         self.deferred = d
         self.dst = dst
@@ -116,7 +134,7 @@ class ICMPPing(DatagramProtocol):
 
         icmp = EchoPacket(packet=packet.payload)
 
-        if icmp.valid and icmp.code==0 and icmp.type==0:
+        if icmp.valid and icmp.code == 0 and icmp.icmp_type == 0:
             # Check ID is from this pinger
             if (icmp.eid - icmp.seq) == self.id_base:
                 ts = icmp.data[:8]
@@ -128,6 +146,8 @@ class ICMPPing(DatagramProtocol):
                 self.recv.append((icmp.seq, delta))
 
     def createData(self, n):
+        """Create some random data to send
+        """
         s = ""
         c = 33
         for i in range(n):
@@ -139,7 +159,8 @@ class ICMPPing(DatagramProtocol):
         return s
 
     def sendEchoRequest(self):
-        # Pack the packet with an ascii table
+        """Pack the packet with an ascii table and send it
+        """
         md = self.createData(self.size)
 
         us = int(time.time()*1000000)
@@ -151,6 +172,8 @@ class ICMPPing(DatagramProtocol):
         self.seq += 1
 
     def ping(self):
+        """Send a ping
+        """
         if self.seq < self.count:
             self.sendEchoRequest()
         else:
@@ -165,6 +188,8 @@ class ICMPPing(DatagramProtocol):
             reactor.callLater(remaining, self.endPing)
 
     def endPing(self):
+        """Stop ICMP ping
+        """
         r = len(self.recv)
         loss = (self.count - r) / float(self.count)
         loss = int(100*loss)
@@ -176,6 +201,8 @@ class ICMPPing(DatagramProtocol):
         self.deferred.callback((loss, avgLatency))
 
     def startPing(self):
+        """Start ICMP ping
+        """
         self.transport.connect(self.dst, random.randint(33434, 33534))
         self.start = time.time()
         self.t.start(self.inter)
@@ -214,7 +241,8 @@ def ping(dst, count, inter=0.2, maxwait=1000, size=64):
         return result
 
     d = defer.Deferred()
-    p = ICMPPort(0, ICMPPing(d, dst, count, inter, maxwait, size), "", 8192, reactor)
+    p = ICMPPort(0, ICMPPing(d, dst, count, inter, maxwait, size), "", 8192,
+                 reactor)
     p.startListening()
 
     return d.addCallback(_then, p)
