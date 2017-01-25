@@ -36,7 +36,7 @@ class Tests(unittest.TestCase):
 
     def _bootstrap_output(self, outputClass, options={}):
         out = outputClass(options, self.service)
-        out.t = ManualLooper(out.tick)
+        out.timer = ManualLooper(out.tick)
         out.createClient()
 
         return out

@@ -24,6 +24,10 @@ class ConfigFile(object):
         if os.path.exists(path):
             with open(path, 'rt') as conf:
                 self.raw_config = yaml.load(conf)
+
+            if not self.raw_config:
+                self.raw_config = {}
+                log.msg("Warning: No configuration content")
         else:
             raise Exception("Configuration file '%s' not found" % path)
 
