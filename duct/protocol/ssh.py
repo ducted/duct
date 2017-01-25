@@ -4,7 +4,8 @@
 
 .. moduleauthor:: Colin Alston <colin@imcol.in>
 """
-
+# Had to work around a bunch of conch fails
+# pylint: disable=W0212
 import os
 
 from twisted.conch.ssh.keys import EncryptedKeyError, Key
@@ -47,21 +48,22 @@ class SSHCommandProtocol(protocol.Protocol):
     """
     def __init__(self):
         self.factory = None
+        self.stdOut = StringIO()
+        self.stdErr = StringIO()
+        self.finished = None
 
     def connectionMade(self):
         self.finished = defer.Deferred()
-        self.stdOut = StringIO()
-        self.stdErr = StringIO()
 
     def dataReceived(self, data):
         self.stdOut.write(data.decode())
 
-    def extReceived(self, code, data):
+    def extReceived(self, _code, data):
         """Received extended data, usually stderr
         """
         self.stdErr.write(data.decode())
 
-    def connectionLost(self, reason):
+    def connectionLost(self, reason=protocol.connectionDone):
         self.stdOut.seek(0)
         self.stdErr.seek(0)
         if reason.type is error.ConnectionDone:
@@ -93,6 +95,7 @@ class SSHClient(object):
         self.username = username.encode()
         self.port = int(port)
         self.password = None
+        self.endpoint = None
         if password:
             self.password = password.encode()
         self.connection = None
@@ -105,7 +108,7 @@ class SSHClient(object):
 
         self.keys = []
 
-    def verifyHostKey(self, ui, hostname, ip, key):
+    def verifyHostKey(self, _ui, hostname, ip, key):
         """Called to verify host keys
         Does very minimal validation to prevent monitoring blockages
         """
@@ -206,11 +209,14 @@ class SSHClient(object):
 
         transport.connectionReady.errback(reason)
 
-    def fork(self, command, args=(), env={}, path=None, timeout=3600):
+    def fork(self, command, args=(), env={}, path=None, _timeout=3600):
         """Execute a remote command on the SSH server
         """
         if not self.connection:
             return defer.maybeDeferred(lambda: (None, "SSH not ready", 255))
+
+        if path:
+            env['PATH'] = path
 
         if env:
             env = ' '.join('%s=%s' % (key, val) for key, val in env.items()

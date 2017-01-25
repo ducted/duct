@@ -7,8 +7,7 @@
 
 from zope.interface import Interface
 
-
-# pylint: disable=E0239
+# pylint: disable=E0239,W0221
 class IDuctProtocol(Interface):
     """Interface for Duct client protocols"""
 

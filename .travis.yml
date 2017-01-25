@@ -14,7 +14,7 @@ before_install:
     - sudo /etc/init.d/riemann start
 script:
     - trial duct
-    - pylint --errors-only duct
+    - pylint duct
 
 after_script:
     - sudo /etc/init.d/riemann stop

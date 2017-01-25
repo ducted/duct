@@ -5,6 +5,8 @@
 
 .. moduleauthor:: Colin Alston <colin@imcol.in>
 """
+# This is necessary in this module
+# pylint: disable=W0201
 
 import time
 import datetime
@@ -16,7 +18,7 @@ from zope.interface import implementer
 from duct.interfaces import IDuctSource
 from duct.objects import Source
 
-from duct.utils import HTTPRequest, fork
+from duct.utils import HTTPRequest
 from duct.aggregators import Counter64
 from duct.logs import parsers, follower
 
@@ -25,7 +27,7 @@ class Nginx(Source):
     """Reads Nginx stub_status
 
     **Configuration arguments:**
-    
+
     :param stats_url: URL to fetch stub_status from
     :type stats_url: str.
 
@@ -64,8 +66,8 @@ class Nginx(Source):
     def get(self):
         url = self.config.get('url', self.config.get('stats_url'))
 
-        body = yield HTTPRequest().getBody(url,
-            headers={'User-Agent': ['Duct']},
+        body = yield HTTPRequest().getBody(
+            url, headers={'User-Agent': ['Duct']}
         )
 
         events = []
@@ -73,12 +75,10 @@ class Nginx(Source):
         if body:
             metrics = self._parse_nginx_stats(body)
 
-            for k,v in metrics.items():
+            for k, v in metrics.items():
                 metric, aggr = v
-                events.append(
-                    self.createEvent('ok', 'Nginx %s' % (k), metric, prefix=k,
-                        aggregation=aggr)
-                )
+                events.append(self.createEvent('ok', 'Nginx %s' % (k), metric,
+                                               prefix=k, aggregation=aggr))
 
         defer.returnValue(events)
 
@@ -88,7 +88,7 @@ class NginxLogMetrics(Source):
     and requests against other fields.
 
     **Configuration arguments:**
-    
+
     :param log_format: Log format passed to parser, same as the config
                        definition
     :type log_format: str.
@@ -111,7 +111,8 @@ class NginxLogMetrics(Source):
     :(service name).stats.(code).(requests|rbytes): Metrics by status code
     :(service name).user-agent.(agent).(requests|rbytes): Metrics by user agent
     :(service name).client.(ip).(requests|rbytes): Metrics by client IP
-    :(service name).request.(request path).(requests|rbytes): Metrics by request path
+    :(service name).request.(request path).(requests|rbytes): Metrics by
+                                                              request path
     """
 
     # Don't allow overlapping runs
@@ -120,12 +121,13 @@ class NginxLogMetrics(Source):
     def __init__(self, *a):
         Source.__init__(self, *a)
 
-        parser = parsers.ApacheLogParser(self.config.get('log_format', 'combined'))
+        parser = parsers.ApacheLogParser(self.config.get('log_format',
+                                                         'combined'))
 
         history = self.config.get('history', False)
 
         self.log = follower.LogFollower(self.config['file'],
-            parser=parser.parse, history=history)
+                                        parser=parser.parse, history=history)
 
         self.max_lines = int(self.config.get('max_lines', 2000))
         self.bucket_res = int(self.config.get('resolution', 10))
@@ -138,33 +140,41 @@ class NginxLogMetrics(Source):
         if f:
             if fil:
                 f = fil(f)
-            if not (field in self.st):
+            if field not in self.st:
                 self.st[field] = {}
 
-            if not (f in self.st[field]):
+            if f not in self.st[field]:
                 self.st[field][f] = [b, 1]
-            
+
             else:
                 self.st[field][f][0] += b
                 self.st[field][f][1] += 1
 
     def dumpEvents(self, ts):
+        """Dump collected events for the time bucket
+        """
         if self.st:
             events = [
-                self.createEvent('ok', 'Nginx rbytes', self.rbytes, prefix='total_rbytes',
-                    evtime=ts),
+                self.createEvent('ok', 'Nginx rbytes', self.rbytes,
+                                 prefix='total_rbytes', evtime=ts),
                 self.createEvent('ok', 'Nginx requests', self.requests,
-                    prefix='total_requests', evtime=ts)
+                                 prefix='total_requests', evtime=ts)
             ]
 
             for field, block in self.st.items():
                 for key, vals in block.items():
                     rbytes, requests = vals
                     events.extend([
-                        self.createEvent('ok', 'Nginx %s %s rbytes' % (field, key), rbytes,
-                            prefix='%s.%s.rbytes' % (field, key), evtime=ts),
-                        self.createEvent('ok', 'Nginx %s %s requests' % (field, key), requests,
-                            prefix='%s.%s.requests' % (field, key), evtime=ts)
+                        self.createEvent('ok',
+                                         'Nginx %s %s rbytes' % (field, key),
+                                         rbytes,
+                                         prefix='%s.%s.rbytes' % (field, key),
+                                         evtime=ts),
+                        self.createEvent('ok',
+                                         'Nginx %s %s requests' % (field, key),
+                                         requests,
+                                         prefix='%s.%s.requests' % (field, key),
+                                         evtime=ts)
                     ])
 
             self.st = {}
@@ -174,10 +184,12 @@ class NginxLogMetrics(Source):
             self.queueBack(events)
 
     def got_line(self, line):
+        """Line received
+        """
         b = line.get('rbytes', 0)
         if b:
             self.rbytes += b
-        
+
         self.requests += 1
 
         t = time.mktime(line['time'].timetuple())
@@ -186,7 +198,7 @@ class NginxLogMetrics(Source):
         bucket = int(int(t)/self.bucket_res)*self.bucket_res
 
         if self.bucket:
-            if (bucket != self.bucket):
+            if bucket != self.bucket:
                 self.dumpEvents(float(self.bucket))
                 self.bucket = bucket
         else:
@@ -194,11 +206,13 @@ class NginxLogMetrics(Source):
 
         self._aggregate_fields(line, b, 'status')
         self._aggregate_fields(line, b, 'client')
-        self._aggregate_fields(line, b, 'user-agent',
-            fil=lambda l: l.replace('.',',')
+        self._aggregate_fields(
+            line, b, 'user-agent',
+            fil=lambda l: l.replace('.', ',')
         )
-        self._aggregate_fields(line, b, 'request',
-            fil=lambda l: l.split()[1].split('?')[0].replace('.',',')
+        self._aggregate_fields(
+            line, b, 'request',
+            fil=lambda l: l.split()[1].split('?')[0].replace('.', ',')
         )
 
     def get(self):
@@ -216,7 +230,7 @@ class NginxLog(Source):
     which support them.
 
     **Configuration arguments:**
-    
+
     :param log_format: Log format passed to parser, same as the config
                        definition (default: combined)
     :type log_format: str.
@@ -234,14 +248,18 @@ class NginxLog(Source):
     def __init__(self, *a):
         Source.__init__(self, *a)
 
-        self.parser = parsers.ApacheLogParser(self.config.get('log_format', 'combined'))
+        self.parser = parsers.ApacheLogParser(self.config.get('log_format',
+                                                              'combined'))
 
         self.log = follower.LogFollower(self.config['file'],
-            parser=self._parser_proxy, history=False)
+                                        parser=self._parser_proxy,
+                                        history=False)
 
         self.max_lines = int(self.config.get('max_lines', 2000))
 
     def got_eventlog(self, event):
+        """Received event log
+        """
         self.queueBack(event)
 
     def _parser_proxy(self, line):

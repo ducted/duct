@@ -35,7 +35,7 @@ class IP(object):
         vl = struct.unpack('!b', packet[0])[0]
         l = (vl & 0xf) * 4
 
-        head = packet[:l]
+        #head = packet[:l]
         self.offset = struct.unpack('!H', packet[6:8])
 
         self.payload = packet[l:]
@@ -57,20 +57,20 @@ class EchoPacket(object):
         """Calculate the ICMP ping checksum
         """
         nleft = len(buf)
-        sum = 0
+        chksum = 0
         pos = 0
         while nleft > 1:
-            sum = ord(buf[pos]) * 256 + (ord(buf[pos + 1]) + sum)
+            chksum = ord(buf[pos]) * 256 + (ord(buf[pos + 1]) + chksum)
             pos = pos + 2
             nleft = nleft - 2
         if nleft == 1:
-            sum = sum + ord(buf[pos]) * 256
+            chksum = chksum + ord(buf[pos]) * 256
 
-        sum = (sum >> 16) + (sum & 0xFFFF)
-        sum += (sum >> 16)
-        sum = (~sum & 0xFFFF)
+        chksum = (chksum >> 16) + (chksum & 0xFFFF)
+        chksum += (chksum >> 16)
+        chksum = (~chksum & 0xFFFF)
 
-        return sum
+        return chksum
 
     def encodePacket(self):
         """Encode ICMP packet
@@ -126,19 +126,16 @@ class ICMPPing(DatagramProtocol):
         self.t = task.LoopingCall(self.ping)
         self.recv = []
 
-    def datagramReceived(self, datagram, address):
+    def datagramReceived(self, datagram, _address):
         now = int(time.time()*1000000)
-        host, port = address
-
         packet = IP(datagram)
-
         icmp = EchoPacket(packet=packet.payload)
 
         if icmp.valid and icmp.code == 0 and icmp.icmp_type == 0:
             # Check ID is from this pinger
             if (icmp.eid - icmp.seq) == self.id_base:
                 ts = icmp.data[:8]
-                data = icmp.data[8:]
+                #data = icmp.data[8:]
                 delta = (now - struct.unpack('!Q', ts)[0])/1000.0
 
                 self.maxwait = (self.maxwait + delta)/2.0
@@ -150,7 +147,7 @@ class ICMPPing(DatagramProtocol):
         """
         s = ""
         c = 33
-        for i in range(n):
+        for _ in range(n):
             s += chr(c)
             if c < 126:
                 c += 1

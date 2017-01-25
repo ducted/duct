@@ -45,7 +45,7 @@ class Event(object):
             aggregation=None,
             evtime=None,
             attributes=None,
-            type='metric'):
+            evtype='metric'):
         self.state = state
         self.service = service
         self.description = description
@@ -54,7 +54,7 @@ class Event(object):
         self.tags = tags if tags is not None else []
         self.attributes = attributes
         self.aggregation = aggregation
-        self._type = type
+        self.evtype = evtype
 
         if evtime:
             self.time = evtime
@@ -84,7 +84,7 @@ class Event(object):
             'ttl': self.ttl,
             'tags': self.tags,
             'time': self.time,
-            'type': self._type,
+            'type': self.evtype,
             'description': self.description,
         }
 
@@ -351,7 +351,7 @@ class Source(object):
 
         return Event(None, evtype, data, 0, self.ttl,
                      hostname=hostname or self.hostname, evtime=evtime,
-                     tags=self.tags, type='log')
+                     tags=self.tags, evtype='log')
 
     def get(self):
         """Get method for source called every `self.inter`

@@ -24,7 +24,7 @@ class HTTP(Source):
     """Performs an HTTP request
 
     **Configuration arguments:**
-    
+
     :param url: HTTP URL
     :type url: str.
     :param method: HTTP request method to use (default GET)
@@ -54,44 +54,40 @@ class HTTP(Source):
 
         try:
             body = yield HTTPRequest(timeout).getBody(url, method,
-                {'User-Agent': [ua]},
-            )
+                                                      {'User-Agent': [ua]})
         except Timeout:
             log.msg('[%s] Request timeout' % url)
             t_delta = (time.time() - t0) * 1000
-            defer.returnValue(
-                self.createEvent('critical', '%s - timeout' % url, t_delta,
-                    prefix="latency")
-            )
+            defer.returnValue(self.createEvent('critical',
+                                               '%s - timeout' % url, t_delta,
+                                               prefix="latency"))
         except Exception as e:
             log.msg('[%s] Request error %s' % (url, e))
             t_delta = (time.time() - t0) * 1000
-            defer.returnValue(
-                self.createEvent('critical', '%s - %s' % (url, e), t_delta,
-                    prefix="latency")
-            )
+            defer.returnValue(self.createEvent('critical',
+                                               '%s - %s' % (url, e),
+                                               t_delta,
+                                               prefix="latency"))
 
         t_delta = (time.time() - t0) * 1000
 
         if match:
-            if (match in body):
+            if match in body:
                 state = 'ok'
             else:
                 state = 'critical'
         else:
             state = 'ok'
-        
-        defer.returnValue(
-            self.createEvent(state, 'Latency to %s' % url, t_delta,
-                prefix="latency")
-        )
+
+        defer.returnValue(self.createEvent(state, 'Latency to %s' % url,
+                                           t_delta, prefix="latency"))
 
 @implementer(IDuctSource)
 class Ping(Source):
     """Performs an Ping checks against a destination
 
     **Configuration arguments:**
-    
+
     :param destination: Host name or IP address to ping
     :type destination: str.
 
@@ -116,17 +112,17 @@ class Ping(Source):
         if ip:
             try:
                 loss, latency = yield icmp.ping(ip, 5)
-            except: 
+            except:
                 loss, latency = 100, None
 
-            event = [self.createEvent('ok', '%s%% loss to %s' % (loss,host), loss,
-                prefix="loss")]
+            event = [self.createEvent('ok', '%s%% loss to %s' % (loss, host),
+                                      loss, prefix="loss")]
 
             if latency:
-                event.append(self.createEvent('ok', 'Latency to %s' % host, latency,
-                            prefix="latency"))
+                event.append(self.createEvent('ok', 'Latency to %s' % host,
+                                              latency, prefix="latency"))
         else:
-            event = [self.createEvent('critical', 'Unable to resolve %s' % host, 100,
-                prefix="loss")]
+            event = [self.createEvent('critical', 'Unable to resolve %s' % host,
+                                      100, prefix="loss")]
 
         defer.returnValue(event)

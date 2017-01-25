@@ -5,14 +5,9 @@
 
 .. moduleauthor:: Colin Alston <colin@imcol.in>
 """
-
-import time
-import exceptions
-
 from twisted.internet import defer
 from twisted.internet import reactor, protocol
 from twisted.protocols.memcache import MemCacheProtocol
-from twisted.python import log
 
 from zope.interface import implementer
 
@@ -27,7 +22,7 @@ class Memcache(Source):
     """Reads memcache metrics
 
     **Configuration arguments:**
-    
+
     :param host: Database host (default localhost)
     :type host: str.
     :param port: Database port (default 11211)
@@ -47,14 +42,15 @@ class Memcache(Source):
     def get(self):
         events = []
         try:
-            memcache = yield protocol.ClientCreator(reactor, MemCacheProtocol
-                        ).connectTCP(self.host, self.port)
+            memcache = yield protocol.ClientCreator(
+                reactor, MemCacheProtocol).connectTCP(self.host, self.port)
+
             events.append(self.createEvent('ok', 'Connection', 1,
-                prefix='state'))
+                                           prefix='state'))
         except:
             memcache = None
             events.append(self.createEvent('critical', 'Connection refused', 0,
-                prefix='state'))
+                                           prefix='state'))
 
         if memcache:
             stats = yield memcache.stats()
@@ -79,13 +75,15 @@ class Memcache(Source):
                 d = key.capitalize().replace('_', ' ')
                 s = key.replace('_', '.')
                 events.append(self.createEvent('ok',
-                    d, int(stats[key]), prefix=s, aggregation=Counter64))
+                                               d, int(stats[key]),
+                                               prefix=s,
+                                               aggregation=Counter64))
 
             for key in vals:
                 d = key.capitalize().replace('_', ' ')
                 s = key.replace('_', '.')
 
                 events.append(self.createEvent('ok', d, int(stats[key]),
-                    prefix=s))
+                                               prefix=s))
 
         defer.returnValue(events)

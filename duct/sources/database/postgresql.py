@@ -5,8 +5,6 @@
 
 .. moduleauthor:: Colin Alston <colin@imcol.in>
 """
-
-import time
 import exceptions
 
 from twisted.internet import defer
@@ -26,7 +24,7 @@ class PostgreSQL(Source):
     """Reads PostgreSQL metrics
 
     **Configuration arguments:**
-    
+
     :param host: Database host
     :type host: str.
     :param port: Database port
@@ -51,12 +49,12 @@ class PostgreSQL(Source):
     @defer.inlineCallbacks
     def get(self):
         try:
-            p = adbapi.ConnectionPool('psycopg2', 
-                database='postgres',
-                host=self.host,
-                port=self.port,
-                user=self.user,
-                password=self.password)
+            p = adbapi.ConnectionPool('psycopg2',
+                                      database='postgres',
+                                      host=self.host,
+                                      port=self.port,
+                                      user=self.user,
+                                      password=self.password)
 
             cols = (
                 ('xact_commit', 'commits'),
@@ -82,32 +80,35 @@ class PostgreSQL(Source):
                 db = row[0]
                 threads = row[1]
                 if db not in ('template0', 'template1'):
-                    self.queueBack(self.createEvent('ok',
+                    self.queueBack(self.createEvent(
+                        'ok',
                         'threads: %s' % threads,
                         threads,
-                        prefix='%s.threads' % db)
-                    )
+                        prefix='%s.threads' % db
+                    ))
 
                     for i, col in enumerate(row[2:]):
-                        self.queueBack(self.createEvent('ok',
+                        self.queueBack(self.createEvent(
+                            'ok',
                             '%s: %s' % (names[i], col),
                             col,
                             prefix='%s.%s' % (db, names[i]),
-                            aggregation=Counter64)
-                        )
+                            aggregation=Counter64
+                        ))
 
             yield p.close()
 
             defer.returnValue(self.createEvent('ok', 'Connection ok', 1,
-                prefix='state'))
+                                               prefix='state'))
 
         except exceptions.ImportError:
             log.msg('duct.sources.database.postgresql.PostgreSQL'
-                ' requires psycopg2')
+                    ' requires psycopg2')
             defer.returnValue(None)
         except Exception as e:
-            defer.returnValue(self.createEvent('critical',
-                'Connection error: %s' % str(e).replace('\n',' '),
-                0, prefix='state')
-            )
-
+            defer.returnValue(self.createEvent(
+                'critical',
+                'Connection error: %s' % str(e).replace('\n', ' '),
+                0,
+                prefix='state'
+            ))

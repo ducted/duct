@@ -5,10 +5,8 @@
 
 .. moduleauthor:: Colin Alston <colin@imcol.in>
 """
-
-import time
-
-from twisted.internet import reactor, defer
+from twisted.internet import defer
+from twisted.python import log
 
 from zope.interface import implementer
 
@@ -35,48 +33,49 @@ class SNMPConnection(object):
 
     (This is not a source and you shouldn't try to use it as one)
     """
-    
+
     def __init__(self, host, port, community):
         self.snmp = engine.SnmpEngine()
         self.snmp.registerTransportDispatcher(dispatch.TwistedDispatcher())
 
         config.addV1System(self.snmp, 'my-area', community)
         config.addTargetParams(self.snmp,
-            'my-creds', 'my-area', 'noAuthNoPriv', 0)
+                               'my-creds', 'my-area', 'noAuthNoPriv', 0)
         config.addSocketTransport(self.snmp,
-            udp.domainName, udp.UdpTwistedTransport().openClientMode()
-        )
+                                  udp.domainName,
+                                  udp.UdpTwistedTransport().openClientMode())
         config.addTargetAddr(self.snmp, 'my-router', udp.domainName,
-            (host, port), 'my-creds')
+                             (host, port), 'my-creds')
 
     def _walk(self, soid):
         # Error/response receiver
         result = []
         def cbFun(cbCtx, result, d):
+            """Callback after walk
+            """
             (errorIndication, errorStatus, errorIndex, varBindTable) = cbCtx
             if errorIndication:
-                print(errorIndication)
+                log.msg(str(errorIndication))
             elif errorStatus and errorStatus != 2:
-                print('%s at %s' % (
-                        errorStatus.prettyPrint(),
-                        errorIndex and varBindTable[-1][int(errorIndex)-1][0] or '?'
-                    )
-                )
+                log.msg('%s at %s' % (
+                    errorStatus.prettyPrint(),
+                    errorIndex and varBindTable[-1][int(errorIndex)-1][0] or '?'
+                ))
             else:
                 for varBindRow in varBindTable:
                     for oid, val in varBindRow:
                         if str(oid).startswith(soid):
                             result.append((oid, val))
 
-                for oid, val in varBindRow:
-                    if not str(oid).startswith(soid):
-                        d.callback(result)
-                        return 
-                    if not val.isSameTypeWith(rfc1905.endOfMibView):
-                        break
-                else:
-                    d.callback(result)
-                    return
+                        else:
+                            d.callback(result)
+                            return
+
+                        if not val.isSameTypeWith(rfc1905.endOfMibView):
+                            break
+                        else:
+                            d.callback(result)
+                            return
 
                 df = defer.Deferred()
                 df.addCallback(cbFun, result, d)
@@ -85,14 +84,19 @@ class SNMPConnection(object):
             d.callback(result)
 
         # Prepare request to be sent yielding Twisted deferred object
-        df = cmdgen.NextCommandGenerator().sendReq(self.snmp,
-            'my-router', ((soid, None),))
+        df = cmdgen.NextCommandGenerator().sendReq(
+            self.snmp,
+            'my-router',
+            ((soid, None),)
+        )
 
         d = defer.Deferred()
         df.addCallback(cbFun, result, d)
         return d
 
     def walk(self, oid):
+        """Walk through OID's
+        """
         return self._walk(oid)
 
 @implementer(IDuctSource)
@@ -119,12 +123,16 @@ class SNMP(Source):
 
         community = self.config.get('community', None)
         self.snmp = SNMPConnection(host, port, community)
-    
+
     def getCounter(self, soid):
+        """Walk for counter
+        """
         return self.snmp.walk(soid)
 
     @defer.inlineCallbacks
     def getIfMetrics(self):
+        """Get interface metrics
+        """
         ifaces = yield self.snmp.walk('1.3.6.1.2.1.2.2.1.2')
 
         table = [
@@ -139,16 +147,16 @@ class SNMP(Source):
             ('1.3.6.1.2.1.2.2.1.20', 'ifOutErrors'),
             ('1.3.6.1.2.1.2.2.1.19', 'ifOutDiscards'),
         ]
-        
+
         data = {}
         for oid, key in table:
             d = yield self.getCounter(oid)
             for i, v in enumerate(d):
-                noid, val = v
+                _noid, val = v
 
                 if val:
                     iface = str(ifaces[i][1])
-                    if not iface in data:
+                    if iface not in data:
                         data[iface] = {}
                     data[iface][key] = val
 
@@ -164,11 +172,13 @@ class SNMP(Source):
                 if isinstance(val, rfc1902.Counter64):
                     aggr = aggregators.Counter64
 
-                events.append(
-                    self.createEvent('ok',
-                        "SNMP interface %s %s=%0.2f" % (iface, key, int(val)),
-                        int(val),
-                        prefix="%s.%s" % (iface, key), aggregation=aggr))
+                events.append(self.createEvent(
+                    'ok',
+                    "SNMP interface %s %s=%0.2f" % (iface, key, int(val)),
+                    int(val),
+                    prefix="%s.%s" % (iface, key),
+                    aggregation=aggr
+                ))
 
         defer.returnValue(events)
 
@@ -203,11 +213,11 @@ class SNMPCisco837(SNMP):
 
         events.append(
             self.createEvent('ok', "SNMP ADSL sync downstream %s" % sync_ds,
-                sync_ds, prefix="adsl.rxrate"))
+                             sync_ds, prefix="adsl.rxrate"))
 
         events.append(
             self.createEvent('ok', "SNMP ADSL sync upstream %s" % sync_us,
-                sync_us, prefix="adsl.txrate"))
+                             sync_us, prefix="adsl.txrate"))
 
         link = yield self.snmp.walk('1.3.6.1.2.1.10.94.1.1.3')
         link = dict([(str(i), j) for i, j in link])
@@ -218,14 +228,14 @@ class SNMPCisco837(SNMP):
 
         events.append(
             self.createEvent('ok', "SNMP ADSL output power %0.2fdBm" % output,
-                output, prefix="adsl.outpwr"))
+                             output, prefix="adsl.outpwr"))
 
         events.append(
             self.createEvent('ok', "SNMP ADSL attenuation %0.2fdB" % attn,
-                attn, prefix="adsl.attn"))
+                             attn, prefix="adsl.attn"))
 
         events.append(
             self.createEvent('ok', "SNMP ADSL noise margin %0.2fdB" % margin,
-                margin, prefix="adsl.margin"))
-        
+                             margin, prefix="adsl.margin"))
+
         defer.returnValue(events)

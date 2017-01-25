@@ -114,7 +114,7 @@ class ConfigFile(object):
 
         if blueprints:
             # Make sure raw config stubs exist if we have any blueprints
-            if not 'sources' in self.raw_config:
+            if 'sources' not in self.raw_config:
                 self.raw_config['sources'] = []
 
         for blueprint in blueprints:

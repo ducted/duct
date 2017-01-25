@@ -76,6 +76,8 @@ class RiemannTCP(Output):
         self.maxsize = int(self.config.get('maxsize', 250000))
         self.expire = self.config.get('expire', False)
         self.allow_nan = self.config.get('allow_nan', True)
+        self.factory = None
+        self.connector = None
 
         maxrate = int(self.config.get('maxrate', 0))
 
@@ -189,6 +191,7 @@ class RiemannUDP(Output):
     def __init__(self, *a):
         Output.__init__(self, *a)
         self.protocol = None
+        self.endpoint = None
 
     def createClient(self):
         """Create a UDP connection to Riemann"""

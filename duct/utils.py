@@ -191,6 +191,7 @@ except:
 
 try:
     from twisted.web import client as twclient
+    # pylint: disable=W0212
     twclient._HTTP11ClientFactory.noisy = False
     twclient.HTTPClientFactory.noisy = False
 except:

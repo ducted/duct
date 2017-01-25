@@ -5,10 +5,7 @@
 
 .. moduleauthor:: Colin Alston <colin@imcol.in>
 """
-
-import time, math
-
-from twisted.internet import defer, reactor
+import math
 
 from zope.interface import implementer
 
@@ -26,7 +23,7 @@ class Function(Source):
     Or the constants e, pi, and variable x
 
     **Configuration arguments:**
-    
+
     :param dx: Resolution with time (steps of x)
     :type dx: float.
     :param function: Function to produce

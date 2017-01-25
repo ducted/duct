@@ -1,11 +1,20 @@
+"""
+.. module:: parsers
+   :synopsis: Log line parser classes
+
+.. moduleauthor:: Colin Alston <colin@imcol.in>
+"""
+
 import re
 from datetime import datetime
 
 class ApacheLogParserError(Exception):
+    """Appache log parsing error
+    """
     pass
 
-class ApacheLogParser:
-    """Parses Apache log format 
+class ApacheLogParser(object):
+    """Parses Apache log format
 
     Adapted from http://code.google.com/p/apachelog
 
@@ -14,7 +23,7 @@ class ApacheLogParser:
              or one of 'common', 'vhcommon' or 'combined'
     :type format: str
     """
-    def __init__(self, format):
+    def __init__(self, fmt):
         formats = {
             # Common Log Format (CLF)
             'common': r'%h %l %u %t \"%r\" %>s %b',
@@ -23,7 +32,8 @@ class ApacheLogParser:
             'vhcommon': r'%v %h %l %u %t \"%r\" %>s %b',
 
             # NCSA extended/combined log format
-            'combined': r'%h %l %u %t \"%r\" %>s %b \"%{Referer}i\" \"%{User-agent}i\"',
+            'combined': r'%h %l %u %t \"%r\" %>s %b \"%{Referer}i\"'
+                        ' \"%{User-agent}i\"',
         }
 
         self._names = []
@@ -47,22 +57,24 @@ class ApacheLogParser:
             '%v': ('vhost', str),
         }
 
-        if format in formats:
-            self._parse_format(formats[format])
+        if fmt in formats:
+            self._parse_format(formats[fmt])
         else:
-            self._parse_format(format)
+            self._parse_format(fmt)
 
     def _parse_date(self, date):
         date = date.split()[0][1:]
         return datetime.strptime(date, "%d/%b/%Y:%H:%M:%S")
 
     def alias(self, field):
+        """Alias a field
+        """
         if field in self.types:
             return self.types[field][0]
         else:
             return field
-    
-    def _parse_format(self, format):
+
+    def _parse_format(self, fmt):
         """
         Converts the input format to a regular
         expression, as well as extracting fields
@@ -70,9 +82,9 @@ class ApacheLogParser:
         Raises an exception if it couldn't compile
         the generated regex.
         """
-        format = format.strip()
-        format = re.sub('[ \t]+',' ',format)
-        
+        fmt = fmt.strip()
+        fmt = re.sub('[ \t]+', ' ', fmt)
+
         subpatterns = []
 
         findquotes = re.compile(r'^\\"')
@@ -81,16 +93,17 @@ class ApacheLogParser:
         lstripquotes = re.compile(r'^\\"')
         rstripquotes = re.compile(r'\\"$')
         header = re.compile(r'.*%\{([^\}]+)\}i')
-        
-        for element in format.split(' '):
+
+        for element in fmt.split(' '):
 
             hasquotes = 0
-            if findquotes.search(element): hasquotes = 1
+            if findquotes.search(element):
+                hasquotes = 1
 
             if hasquotes:
                 element = lstripquotes.sub('', element)
                 element = rstripquotes.sub('', element)
-            
+
             head = header.match(element)
             if head:
                 self._names.append(head.groups()[0].lower())
@@ -98,29 +111,29 @@ class ApacheLogParser:
             else:
                 self._names.append(self.alias(element))
                 self._types.append(self.types.get(element, [None, str])[1])
-            
-            subpattern = '(\S*)'
-            
+
+            subpattern = '(\\S*)'
+
             if hasquotes:
                 if element == '%r' or findreferreragent.search(element):
                     subpattern = r'\"([^"\\]*(?:\\.[^"\\]*)*)\"'
                 else:
                     subpattern = r'\"([^\"]*)\"'
-                
+
             elif findpercent.search(element):
                 subpattern = r'(\[[^\]]+\])'
-                
+
             elif element == '%U':
                 subpattern = '(.+?)'
-            
+
             subpatterns.append(subpattern)
-        
+
         self._pattern = '^' + ' '.join(subpatterns) + '$'
         try:
             self._regex = re.compile(self._pattern)
         except Exception as e:
             raise ApacheLogParserError(e)
-        
+
     def parse(self, line):
         """
         Parses a single line from the log file and returns
@@ -130,7 +143,7 @@ class ApacheLogParser:
         """
         line = line.strip()
         match = self._regex.match(line)
-        
+
         if match:
             data = {}
             for i, e in enumerate(match.groups()):
@@ -140,7 +153,7 @@ class ApacheLogParser:
                     k, v = self._names[i], self._types[i](e)
                 data[k] = v
             return data
-        
+
         raise ApacheLogParserError("Unable to parse: %s" % line)
 
     def pattern(self):
@@ -156,4 +169,3 @@ class ApacheLogParser:
         input format (a list)
         """
         return self._names
-

@@ -1,5 +1,5 @@
 """
-.. module:: unbound 
+.. module:: unbound
    :platform: Unix
    :synopsis: A source module for unbound stats
 
@@ -21,7 +21,7 @@ class Stats(Source):
 
     **Configuration arguments:**
 
-    :param executable: Path to unbound-control executable 
+    :param executable: Path to unbound-control executable
                        (default: /usr/sbin/unbound-control)
     :type executable: str.
 
@@ -36,7 +36,7 @@ class Stats(Source):
     @defer.inlineCallbacks
     def _get_uc_stats(self):
         out, err, code = yield self.fork(self.uc, args=('stats', ))
-        
+
         if code == 0:
             defer.returnValue(out.strip('\n').split('\n'))
         else:
@@ -46,17 +46,17 @@ class Stats(Source):
     @defer.inlineCallbacks
     def get(self):
         events = []
-        
+
         stats = yield self._get_uc_stats()
 
         for row in stats:
             key, val = row.split('=')
-            
+
             try:
                 val = float(val)
             except:
                 # Not a number
-                continue 
+                continue
 
             events.append(self.createEvent('ok', key, val, prefix=key))
 

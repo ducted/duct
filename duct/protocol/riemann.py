@@ -52,7 +52,7 @@ class RiemannProtobufMixin(object):
         """Encode a list of Duct events with protobuf"""
 
         encoded = [self.encodeEvent(ev) for ev in events
-                   if ev._type == 'metric']
+                   if ev.evtype == 'metric']
 
         return proto_pb2.Msg(events=encoded).SerializeToString()
 
@@ -73,9 +73,6 @@ class RiemannProtocol(Int32StringReceiver, RiemannProtobufMixin):
     """Riemann protobuf protocol
     """
 
-    def __init__(self):
-        self.pressure = 0
-
     def stringReceived(self, string):
         self.pressure -= 1
 
@@ -89,6 +86,7 @@ class RiemannClientFactory(protocol.ReconnectingClientFactory):
 
     def __init__(self, hosts, failover=False):
         self.failover = failover
+        self.proto = None
 
         if self.failover:
             if isinstance(hosts, list):
@@ -140,9 +138,9 @@ class RiemannUDP(DatagramProtocol, RiemannProtobufMixin):
     """
 
     def __init__(self, host, port):
+        RiemannProtobufMixin.__init__(self)
         self.host = host
         self.port = port
-        self.pressure = 0
 
     def sendString(self, string):
         """Write a string to the transport

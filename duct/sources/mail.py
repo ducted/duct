@@ -5,12 +5,12 @@
 
 .. moduleauthor:: Colin Alston <colin@imcol.in>
 """
-
+# pylint: disable=C0413
 import time
 import uuid
 import sys
 
-if sys.version_info > (3,0):
+if sys.version_info > (3, 0):
     raise Exception("Mail checks are not yet available on Python 3")
 
 from email.mime.text import MIMEText
@@ -32,7 +32,7 @@ class SMTP(Source):
     """SMTP check
 
     **Configuration arguments:**
-    
+
     :param server: SMTP server (default: `hostname`)
     :type server: str.
     :param port: SMTP port (default: 25)
@@ -56,6 +56,8 @@ class SMTP(Source):
 
     @defer.inlineCallbacks
     def sendMail(self):
+        """Send an email with a unique ID
+        """
         server = self.config.get('server', self.hostname)
         m_from = self.config.get('from', 'Tensor <tensor@%s>' % self.hostname)
         m_to = self.config.get('to', 'Tensor <tensor@%s>' % server)
@@ -70,9 +72,9 @@ class SMTP(Source):
             auth = False
 
 
-        id = uuid.uuid4().hex.decode()
-        message = MIMEText("Duct email test: %s" % id)
-        message['Subject'] = "Duct check %s" % id
+        mail_id = uuid.uuid4().hex.decode()
+        message = MIMEText("Duct email test: %s" % mail_id)
+        message['Subject'] = "Duct check %s" % mail_id
         message['From'] = m_from
         message['To'] = m_to
 
@@ -95,13 +97,13 @@ class SMTP(Source):
 
         elapsed = time.time() - start_time
 
-        defer.returnValue((elapsed, info, state, id))
+        defer.returnValue((elapsed, info, state, mail_id))
 
     @defer.inlineCallbacks
     def get(self):
-        elapsed, info, state, id = yield self.sendMail()
+        elapsed, info, state, _ = yield self.sendMail()
         defer.returnValue([
-           self.createEvent(state, info, elapsed)
+            self.createEvent(state, info, elapsed)
         ])
 
 
@@ -110,7 +112,7 @@ class RoundTrip(SMTP):
     Sends an email and checks to see if it was delivered somewhere
 
     **Configuration arguments:**
-    
+
     :param smtp_server: SMTP server
     :type smtp_server: str.
     :param smtp_port: SMTP port (default: 25)
@@ -176,7 +178,7 @@ class RoundTrip(SMTP):
             self.mailbox = self.config.get('imap_mailbox', 'INBOX')
             if self.mail_ssl:
                 self.mail_port = self.config.get('mail_port', 993)
-            else: 
+            else:
                 self.mail_port = self.config.get('mail_port', 143)
         elif self.mail_type == 'pop3':
             if self.mail_ssl:
@@ -188,10 +190,12 @@ class RoundTrip(SMTP):
 
     @defer.inlineCallbacks
     def connectImap(self):
+        """Connect to IMAP server
+        """
         if not self.imapClient:
             self.imapClient = imap4.IMAPClient(self.mail_server, self.mail_port,
-                                          self.username, self.password,
-                                          ssl=self.mail_ssl)
+                                               self.username, self.password,
+                                               ssl=self.mail_ssl)
 
         if not self.imapClient.connected:
 
@@ -214,7 +218,7 @@ class RoundTrip(SMTP):
             today = time.strftime('%d-%b-%Y')
             elapsed, info, state, uid = yield self.sendMail()
             events.append(self.createEvent(state,
-                          info, elapsed, prefix='smtp'))
+                                           info, elapsed, prefix='smtp'))
 
             if state == 'ok':
                 self.sent = (uid, today, elapsed, time.time())
@@ -223,10 +227,11 @@ class RoundTrip(SMTP):
             try:
                 yield self.connectImap()
                 events.append(self.createEvent('ok',
-                              'IMAP OK', 1, prefix='imap'))
+                                               'IMAP OK', 1, prefix='imap'))
             except:
                 events.append(self.createEvent('critical',
-                              'Could not connect to IMAP', 0, prefix='imap'))
+                                               'Could not connect to IMAP', 0,
+                                               prefix='imap'))
                 defer.returnValue(events)
 
             uid, today, elapsed, t = self.sent
@@ -246,8 +251,9 @@ class RoundTrip(SMTP):
                     if expected in body:
                         round_trip = (time.time() - t) + elapsed
                         events.append(self.createEvent('ok',
-                                      'Mail delivery RTT', round_trip,
-                                      prefix='delivery'))
+                                                       'Mail delivery RTT',
+                                                       round_trip,
+                                                       prefix='delivery'))
                         self.sent = None
 
                 yield self.imapClient.deleteMail(mailnum[0])
@@ -256,8 +262,9 @@ class RoundTrip(SMTP):
             if self.sent and ((time.time() - t) > self.max_time):
                 # Stil waiting after max_time, so give up and raise error
                 events.append(self.createEvent('critical',
-                              'Mail delivery failed', time.time() - t,
-                              prefix='delivery'))
+                                               'Mail delivery failed',
+                                               time.time() - t,
+                                               prefix='delivery'))
 
                 self.sent = None
 

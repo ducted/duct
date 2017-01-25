@@ -6,9 +6,6 @@
 
 .. moduleauthor:: Colin Alston <colin@imcol.in>
 """
-
-import time
-
 from twisted.internet import defer, reactor
 from twisted.protocols.basic import LineReceiver
 from twisted.internet.protocol import ClientCreator
@@ -28,45 +25,50 @@ class MuninProtocol(LineReceiver):
     delimiter = '\n'
     def __init__(self):
         self.ready = False
-        self.buffer = []
+        self.buf = []
         self.d = None
+        self.clist = None
 
     def lineReceived(self, line):
-        if (line[0] == '#'):
+        if line.startswith('#'):
             return
 
         if self.d and (not self.d.called):
-            if self.list:
+            if self.clist:
                 if line == '.':
-                    buffer = self.buffer
-                    self.buffer = []
-                    self.d.callback(buffer)
+                    buf = self.buf
+                    self.buf = []
+                    self.d.callback(buf)
                 else:
-                    self.buffer.append(line)
+                    self.buf.append(line)
             else:
                 self.d.callback(line)
 
     def disconnect(self):
+        """Disconnect from transport
+        """
         return self.transport.loseConnection()
 
-    def sendCommand(self, command, list=False):
+    def sendCommand(self, command, clist=False):
+        """Send command to munin
+        """
         self.d = defer.Deferred()
-        self.list = list
+        self.clist = clist
         self.sendLine(command)
         return self.d
-        
+
 
 @implementer(IDuctSource)
 class MuninNode(Source):
     """Connects to munin-node and retrieves all metrics
 
     **Configuration arguments:**
-    
+
     :param host: munin-node hostname (probably localhost)
     :type host: str.
     :param port: munin-node port (probably 4949)
     :type port: int.
-    
+
     **Metrics:**
 
     :(service name).(plugin name).(keys...): A dot separated tree of
@@ -81,13 +83,13 @@ class MuninNode(Source):
         creator = ClientCreator(reactor, MuninProtocol)
         proto = yield creator.connectTCP(host, port)
 
-        # Announce our capabilities 
+        # Announce our capabilities
         yield proto.sendCommand('cap multigraph')
 
         listout = yield proto.sendCommand('list')
         plug_list = listout.split()
         events = []
-        
+
         for plug in plug_list:
             # Retrive the configuration for this plugin
             config = yield proto.sendCommand('config %s' % plug, True)
@@ -112,9 +114,7 @@ class MuninNode(Source):
                 name, val = m.split(' ', 1)
                 if name != 'multigraph':
                     metric, key = name.split('.')
-
                     base = '%s.%s' % (plug, metric)
-                    
                     m_type = plugin_config.get('%s.type' % base, 'GAUGE')
 
                     try:
@@ -128,13 +128,15 @@ class MuninNode(Source):
 
                     if m_type == 'COUNTER':
                         events.append(self.createEvent('ok', info, val,
-                            prefix=prefix, aggregation=Counter32))
+                                                       prefix=prefix,
+                                                       aggregation=Counter32))
                     elif m_type == 'DERIVE':
                         events.append(self.createEvent('ok', info, val,
-                            prefix=prefix, aggregation=Counter))
+                                                       prefix=prefix,
+                                                       aggregation=Counter))
                     else:
                         events.append(self.createEvent('ok', info, val,
-                            prefix=prefix))
+                                                       prefix=prefix))
 
         yield proto.disconnect()
 

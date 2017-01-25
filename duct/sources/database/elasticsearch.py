@@ -7,13 +7,11 @@
 """
 
 from twisted.internet import defer
-from twisted.python import log
 
 from zope.interface import implementer
 
 from duct.interfaces import IDuctSource
 from duct.objects import Source
-
 from duct.aggregators import Counter64
 from duct.protocol import elasticsearch
 
@@ -23,7 +21,7 @@ class ElasticSearch(Source):
     """Reads elasticsearch metrics
 
     **Configuration arguments:**
-    
+
     :param url: Elasticsearch base URL (default: http://localhost:9200)
     :type url: str.
     :param user: Basic auth username
@@ -57,7 +55,7 @@ class ElasticSearch(Source):
         node_stats = yield self.client.node_stats()
 
         status = {'green': 2, 'yellow': 1, 'red': 0}[stats['status']]
-    
+
         nodes = stats['nodes']['count']['total']
         index_count = stats['indices']['count']
         shards = stats['indices']['shards']['total']
@@ -71,15 +69,19 @@ class ElasticSearch(Source):
             self.createEvent('ok', 'Nodes', nodes, prefix='cluster.nodes'),
             self.createEvent('ok', 'Indices', index_count, prefix='indices'),
             self.createEvent('ok', 'Shards', shards, prefix='shards.total'),
-            self.createEvent('ok', 'Primary shards', shards_primary, prefix='shards.primary'),
-            self.createEvent('ok', 'Documents', shards_primary, prefix='documents.total'),
-            self.createEvent('ok', 'Documents', shards_primary, prefix='documents.rate', aggregation=Counter64),
-            self.createEvent('ok', 'Store size', store, prefix='documents.size'),
+            self.createEvent('ok', 'Primary shards', shards_primary,
+                             prefix='shards.primary'),
+            self.createEvent('ok', 'Documents', docs,
+                             prefix='documents.total'),
+            self.createEvent('ok', 'Documents', docs,
+                             prefix='documents.rate', aggregation=Counter64),
+            self.createEvent('ok', 'Store size', store,
+                             prefix='documents.size'),
         ]
 
         nodes = {}
 
-        for k, v in node_stats['nodes'].items():
+        for v in node_stats['nodes'].values():
             node_name = v['host']
 
             if v.get('attributes', {}).get('client', 'false') == 'true':
@@ -95,9 +97,10 @@ class ElasticSearch(Source):
 
         for node, ms in nodes.items():
             for mname, m in ms.items():
-                events.append(self.createEvent('ok', mname, m, 
+                events.append(self.createEvent(
+                    'ok', mname, m,
                     prefix='nodes.%s.%s' % (node, mname),
-                    aggregation=Counter64))
+                    aggregation=Counter64
+                ))
 
         defer.returnValue(events)
-

@@ -8,8 +8,7 @@
 
 import time
 
-from twisted.internet import defer, reactor
-from twisted.names import client
+from twisted.internet import reactor
 
 from zope.interface import implementer
 
@@ -18,7 +17,7 @@ from duct.objects import Source
 from duct import utils
 
 from duct.protocol.sflow import server
-from duct.protocol.sflow.protocol import flows, counters
+from duct.protocol.sflow.protocol import flows
 
 
 class sFlowReceiver(server.DatagramReceiver):
@@ -33,17 +32,17 @@ class sFlowReceiver(server.DatagramReceiver):
         self.resolver = utils.Resolver()
 
     def process_convo_queue(self, queue, host, idx, deltaIn, tDelta):
-        cn_bytes = sum(map(lambda i: i[4], queue))
-
+        """Process the conversation queue
+        """
         addr = {'dst':{}, 'src': {}}
         port = {'dst':{}, 'src': {}}
 
         btotal = 0
 
-        # Try and aggregate chunks of flow information into something that 
+        # Try and aggregate chunks of flow information into something that
         # is actually useful in Riemann and InfluxDB.
         for convo in queue:
-            src, sport, dst, dport, bytes = convo
+            src, sport, dst, dport, cbytes = convo
 
             if not src in addr['src']:
                 addr['src'][src] = 0
@@ -51,9 +50,9 @@ class sFlowReceiver(server.DatagramReceiver):
             if not dst in addr['dst']:
                 addr['dst'][dst] = 0
 
-            btotal += bytes
-            addr['src'][src] += bytes
-            addr['dst'][dst] += bytes
+            btotal += cbytes
+            addr['src'][src] += cbytes
+            addr['dst'][dst] += cbytes
 
             if not sport in port['src']:
                 port['src'][sport] = 0
@@ -61,17 +60,18 @@ class sFlowReceiver(server.DatagramReceiver):
             if not dport in port['dst']:
                 port['dst'][dport] = 0
 
-            port['src'][sport] += bytes
-            port['dst'][dport] += bytes
+            port['src'][sport] += cbytes
+            port['dst'][dport] += cbytes
 
         for direction, v in addr.items():
-            for ip, bytes in v.items():
-                m = ((bytes/float(btotal)) * deltaIn)/tDelta
+            for ip, cbytes in v.items():
+                m = ((cbytes/float(btotal)) * deltaIn)/tDelta
 
                 self.source.queueBack(
-                    self.source.createEvent('ok', 
-                        'sFlow if:%s addr:%s inOctets/sec %0.2f' % (
-                            idx, ip, m),
+                    self.source.createEvent(
+                        'ok',
+                        'sFlow if:%s addr:%s inOctets/sec %0.2f' % (idx,
+                                                                    ip, m),
                         m,
                         prefix='%s.ip.%s.%s' % (idx, ip, direction),
                         hostname=host
@@ -79,14 +79,16 @@ class sFlowReceiver(server.DatagramReceiver):
                 )
 
         for direction, v in port.items():
-            for port, bytes in v.items():
-                m = ((bytes/float(btotal)) * deltaIn)/tDelta
+            for port, cbytes in v.items():
+                m = ((cbytes/float(btotal)) * deltaIn)/tDelta
 
                 if port:
                     self.source.queueBack(
-                        self.source.createEvent('ok', 
-                            'sFlow if:%s port:%s inOctets/sec %0.2f' % (
-                                idx, port, m),
+                        self.source.createEvent(
+                            'ok',
+                            'sFlow if:%s port:%s inOctets/sec %0.2f' % (idx,
+                                                                        port,
+                                                                        m),
                             m,
                             prefix='%s.port.%s.%s' % (idx, port, direction),
                             hostname=host
@@ -95,6 +97,8 @@ class sFlowReceiver(server.DatagramReceiver):
 
     def receive_flow(self, flow, sample, host):
         def queueFlow(host):
+            """Queue the incomming flows per host
+            """
             if isinstance(sample, flows.IPv4Header):
                 if sample.ip.proto in ('TCP', 'UDP'):
                     sport, dport = (sample.ip_sport, sample.ip_dport)
@@ -102,7 +106,7 @@ class sFlowReceiver(server.DatagramReceiver):
                     sport, dport = (None, None)
 
                 src, dst = (sample.ip.src.asString(), sample.ip.dst.asString())
-                bytes = sample.ip.total_length
+                cbytes = sample.ip.total_length
 
                 if not host in self.convoQueue:
                     self.convoQueue[host] = {}
@@ -111,7 +115,7 @@ class sFlowReceiver(server.DatagramReceiver):
                     self.convoQueue[host][flow.if_inIndex] = []
 
                 self.convoQueue[host][flow.if_inIndex].append(
-                    (src, sport, dst, dport, bytes))
+                    (src, sport, dst, dport, cbytes))
 
         if self.lookup:
             return self.resolver.reverse(host).addCallback(
@@ -149,15 +153,18 @@ class sFlowReceiver(server.DatagramReceiver):
                     self.process_convo_queue(queue, host, idx, deltaIn, tDelta)
 
                 self.source.queueBack([
-                    self.source.createEvent('ok', 
+                    self.source.createEvent(
+                        'ok',
                         'sFlow index %s inOctets/sec %0.2f' % (idx, inRate),
                         inRate,
-                        prefix='%s.inOctets' % idx, hostname=host),
-
-                    self.source.createEvent('ok', 
+                        prefix='%s.inOctets' % idx, hostname=host
+                    ),
+                    self.source.createEvent(
+                        'ok',
                         'sFlow index %s outOctets/sec %0.2f' % (idx, outRate),
                         outRate,
-                        prefix='%s.outOctets' % idx, hostname=host),
+                        prefix='%s.outOctets' % idx, hostname=host
+                    ),
                 ])
 
             else:
@@ -175,15 +182,15 @@ class sFlow(Source):
     """Provides an sFlow server Source
 
     **Configuration arguments:**
-    
+
     :param port: UDP port to listen on
     :type port: int.
     :param dnslookup: Enable reverse DNS lookup for device IPs (default: True)
     :type dnslookup: bool.
 
     **Metrics:**
-    
-    Metrics are published using the key patterns 
+
+    Metrics are published using the key patterns
     (device).(service name).(interface).(in|out)Octets
     (device).(service name).(interface).ip
     (device).(service name).(interface).port

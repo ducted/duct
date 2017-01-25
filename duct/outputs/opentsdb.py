@@ -41,6 +41,7 @@ class OpenTSDB(Output):
 
         self.user = self.config.get('user')
         self.password = self.config.get('password')
+        self.client = None
 
         self.url = self.config.get('url', 'http://localhost:4242')
 

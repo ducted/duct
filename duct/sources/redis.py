@@ -5,9 +5,6 @@
 
 .. moduleauthor:: Colin Alston <colin@imcol.in>
 """
-
-import time
-
 from zope.interface import implementer
 
 from twisted.internet import defer
@@ -49,24 +46,21 @@ class Queues(Source):
     @defer.inlineCallbacks
     def get(self):
 
-        out, err, code = yield self.fork(self.clipath,
-            args=('-n', str(self.db), 'llen', self.queue,)
-        )
+        out, err, code = yield self.fork(self.clipath, args=('-n',
+                                                             str(self.db),
+                                                             'llen',
+                                                             self.queue,))
 
-        events = []
         if code == 0:
             val = int(out.strip('\n').split()[-1])
 
             defer.returnValue([
                 self.createEvent('ok', '%s queue length' % self.queue, val),
-
                 self.createEvent('ok', 'Queue rate', val, prefix='rate',
-                    aggregation=Counter)
+                                 aggregation=Counter)
             ])
 
         else:
             err = 'Error running %s: %s' % (self.clipath, repr(err))
             log.msg(err)
-            defer.returnValue(
-                self.createEvent('critical', err, None)
-            )
+            defer.returnValue(self.createEvent('critical', err, None))

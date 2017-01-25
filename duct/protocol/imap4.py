@@ -6,7 +6,7 @@
 .. moduleauthor:: Colin Alston <colin@imcol.in>
 """
 
-# pylint: disable=C0413
+# pylint: disable=C0413,E1101
 
 import sys
 
@@ -23,6 +23,7 @@ class IMAPClientProtocol(imap4.IMAP4Client):
     """
     greetDeferred = None
     debug = False
+    serverCapabilities = None
 
     def dataReceived(self, data):
         if self.debug:
@@ -91,6 +92,7 @@ class IMAPClient(object):
         self.password = password
         self.ssl = ssl
         self.debug = debug
+        self.proto = None
 
         self.mailboxes = {}
 

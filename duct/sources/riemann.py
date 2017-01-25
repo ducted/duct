@@ -5,18 +5,13 @@
 
 .. moduleauthor:: Colin Alston <colin@imcol.in>
 """
-
-import time
-
-from twisted.internet import defer, reactor
-from twisted.names import client
+from twisted.internet import reactor
 from twisted.internet.protocol import Factory
 
 from zope.interface import implementer
 
 from duct.interfaces import IDuctSource
 from duct.objects import Source, Event
-from duct import utils
 
 from duct.protocol import riemann
 
@@ -46,6 +41,8 @@ class RiemannTCPServer(riemann.RiemannProtocol):
             )
 
 class RiemannTCPFactory(Factory):
+    """TCP Factory for Riemann
+    """
     def __init__(self, source):
         self.source = source
 
@@ -67,7 +64,7 @@ class RiemannTCP(Source):
         """Creates a Riemann TCP server instead of a timer
         """
         reactor.listenTCP(int(self.config.get('port', 5555)),
-            RiemannTCPFactory(self))
+                          RiemannTCPFactory(self))
 
     def get(self):
         pass
