@@ -14,7 +14,8 @@ from duct.protocol.sflow.protocol import flows, counters
 class DatagramReceiver(DatagramProtocol):
     """DatagramReceiver for sFlow packets
     """
-    def datagramReceived(self, data, (host, _port)):
+    def datagramReceived(self, data, address):
+        host, _port = address
         sflow = protocol.Sflow(data, host)
 
         for sample in sflow.samples:

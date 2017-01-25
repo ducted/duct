@@ -5,7 +5,7 @@
 
 .. moduleauthor:: Colin Alston <colin@imcol.in>
 """
-# pylint: disable=C0413
+# pylint: disable=C0413,E0611,E0401
 import time
 import uuid
 import sys

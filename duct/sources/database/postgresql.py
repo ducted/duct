@@ -5,8 +5,6 @@
 
 .. moduleauthor:: Colin Alston <colin@imcol.in>
 """
-import exceptions
-
 from twisted.internet import defer
 from twisted.enterprise import adbapi
 from twisted.python import log
@@ -101,7 +99,7 @@ class PostgreSQL(Source):
             defer.returnValue(self.createEvent('ok', 'Connection ok', 1,
                                                prefix='state'))
 
-        except exceptions.ImportError:
+        except ImportError:
             log.msg('duct.sources.database.postgresql.PostgreSQL'
                     ' requires psycopg2')
             defer.returnValue(None)

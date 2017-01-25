@@ -6,7 +6,8 @@
 .. moduleauthor:: Colin Alston <colin@imcol.in>
 """
 
-# pylint: disable=C0413,E1101
+# Disable all linting because this module doesn't work on Py3
+# pylint: disable=C0413,E1101,all
 
 import sys
 
