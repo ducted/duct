@@ -8,15 +8,18 @@ install:
     - pip install pylint
     - pip install coveralls
     - pip install coverage
+
 before_install:
     - wget http://aphyr.com/riemann/riemann_0.2.6_all.deb
     - sudo apt-get update
     - sudo apt-get install openjdk-7-jre
     - sudo dpkg -i riemann_0.2.6_all.deb
     - sudo /etc/init.d/riemann start
+
 script:
     - coverage run --source=duct `which trial` duct
     - pylint duct
+    - coverage report
 
 after_success:
     - coveralls
