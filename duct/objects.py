@@ -1,26 +1,20 @@
 """
 .. module:: objects
-   :platform: Unix
    :synopsis: Base classes for sources, outputs, and event objects
 
 .. moduleauthor:: Colin Alston <colin@imcol.in>
 """
 
 import hashlib
-import re
 import time
 import socket
-
-try:
-    from exceptions import NotImplementedError
-except ImportError:
-    pass
 
 from twisted.internet import task, defer
 from twisted.python import log
 
 from duct.utils import fork
 from duct.protocol import ssh
+
 
 class Event(object):
     """Duct Event object
@@ -51,7 +45,7 @@ class Event(object):
             aggregation=None,
             evtime=None,
             attributes=None,
-            type='metric'):
+            evtype='metric'):
         self.state = state
         self.service = service
         self.description = description
@@ -60,8 +54,8 @@ class Event(object):
         self.tags = tags if tags is not None else []
         self.attributes = attributes
         self.aggregation = aggregation
-        self._type = type
-        
+        self.evtype = evtype
+
         if evtime:
             self.time = evtime
         else:
@@ -71,16 +65,18 @@ class Event(object):
         else:
             self.hostname = socket.gethostbyaddr(socket.gethostname())[0]
 
-    def id(self):
+    def eid(self):
+        """Return a unique identifier for this event
+        """
         return self.hostname + '.' + self.service
 
     def __repr__(self):
-        ser = ['%s=%s' % (k, repr(v)) for k,v in dict(self).items()]
+        ser = ['%s=%s' % (key, repr(val)) for key, val in dict(self).items()]
 
         return "<Event %s>" % (', '.join(ser))
 
     def __iter__(self):
-        d = {
+        obj = {
             'hostname': self.hostname,
             'state': self.state,
             'service': self.service,
@@ -88,21 +84,21 @@ class Event(object):
             'ttl': self.ttl,
             'tags': self.tags,
             'time': self.time,
-            'type': self._type,
+            'type': self.evtype,
             'description': self.description,
         }
 
         if self.attributes:
-            d['attributes'] = self.attributes
+            obj['attributes'] = self.attributes
 
-        for k, v in d.items():
-            yield k, v
+        for key, val in obj.items():
+            yield key, val
 
-    def copyWithMetric(self, m):
-        return Event(
-            self.state, self.service, self.description, m, self.ttl, self.tags,
-            self.hostname, self.aggregation
-        )
+    def copyWithMetric(self, metric):
+        """Create a copy of this event with a different metric value
+        """
+        return Event(self.state, self.service, self.description, metric,
+                     self.ttl, self.tags, self.hostname, self.aggregation)
 
 class Output(object):
     """Output parent class
@@ -162,8 +158,8 @@ class Source(object):
         self.config = config
         self.duct = duct
 
-        self.t = task.LoopingCall(self.tick)
-        self.td = None
+        self.timer = task.LoopingCall(self.tick)
+        self.timerDeferred = None
         self.attributes = None
 
         self.service = config['service']
@@ -198,27 +194,29 @@ class Source(object):
 
         self.ssh_host = self.config.get('ssh_host', self.hostname)
 
-        self.known_hosts = self.config.get('ssh_knownhosts_file',
-            self.duct.config.get('ssh_knownhosts_file', None))
+        self.known_hosts = self.config.get(
+            'ssh_knownhosts_file',
+            self.duct.config.get('ssh_knownhosts_file', None)
+        )
 
-        self.ssh_keyfile = self.config.get('ssh_keyfile',
-            self.duct.config.get('ssh_keyfile', None))
+        self.ssh_keyfile = self.config.get(
+            'ssh_keyfile', self.duct.config.get('ssh_keyfile', None))
 
-        self.ssh_key = self.config.get('ssh_key',
-            self.duct.config.get('ssh_key', None))
+        self.ssh_key = self.config.get(
+            'ssh_key', self.duct.config.get('ssh_key', None))
 
         # Not sure why you'd bother but maybe you've got a weird policy
-        self.ssh_keypass = self.config.get('ssh_keypass',
-            self.duct.config.get('ssh_keypass', None))
+        self.ssh_keypass = self.config.get(
+            'ssh_keypass', self.duct.config.get('ssh_keypass', None))
 
-        self.ssh_user = self.config.get('ssh_username',
-            self.duct.config.get('ssh_username', None))
+        self.ssh_user = self.config.get(
+            'ssh_username', self.duct.config.get('ssh_username', None))
 
-        self.ssh_password = self.config.get('ssh_password',
-            self.duct.config.get('ssh_password', None))
+        self.ssh_password = self.config.get(
+            'ssh_password', self.duct.config.get('ssh_password', None))
 
-        self.ssh_port = self.config.get('ssh_port',
-            self.duct.config.get('ssh_port', 22))
+        self.ssh_port = self.config.get(
+            'ssh_port', self.duct.config.get('ssh_port', 22))
 
         # Verify config to see if we're good to go
 
@@ -232,11 +230,12 @@ class Source(object):
 
         self.ssh_keydb = []
 
-        cHash = hashlib.sha1(':'.join((
-                        self.ssh_host, self.ssh_user, str(self.ssh_port),
-                        str(self.ssh_password), str(self.ssh_key),
-                        str(self.ssh_keyfile)
-                    )).encode()).hexdigest()
+        cHash = hashlib.sha1(
+            ':'.join((
+                self.ssh_host, self.ssh_user, str(self.ssh_port),
+                str(self.ssh_password), str(self.ssh_key),
+                str(self.ssh_keyfile)
+            )).encode()).hexdigest()
 
         if cHash in self.duct.hostConnectorCache:
             self.ssh_client = self.duct.hostConnectorCache.get(cHash)
@@ -244,8 +243,9 @@ class Source(object):
         else:
             self.ssh_connector = True
             self.ssh_client = ssh.SSHClient(self.ssh_host, self.ssh_user,
-                    self.ssh_port, password=self.ssh_password,
-                    knownhosts=self.known_hosts)
+                                            self.ssh_port,
+                                            password=self.ssh_password,
+                                            knownhosts=self.known_hosts)
 
             if self.ssh_keyfile:
                 self.ssh_client.addKeyFile(self.ssh_keyfile, self.ssh_keypass)
@@ -259,6 +259,8 @@ class Source(object):
         return lambda events: caller(self, events)
 
     def start(self):
+        """Called when source is started
+        """
         pass
 
     @defer.inlineCallbacks
@@ -266,23 +268,30 @@ class Source(object):
         """Starts the timer for this source"""
         yield defer.maybeDeferred(self.start)
 
-        self.td = self.t.start(self.inter)
+        self.timerDeferred = self.timer.start(self.inter)
 
         if self.use_ssh and self.ssh_connector:
             yield defer.maybeDeferred(self.ssh_client.connect)
 
 
     def stop(self):
+        """Called when source is stopped
+        """
         pass
 
     def stopTimer(self):
         """Stops the timer for this source"""
-        self.td = None
-        if self.t.running:
-            self.t.stop()
+        self.timerDeferred = None
+        if self.timer.running:
+            self.timer.stop()
         return defer.maybeDeferred(self.stop)
 
     def fork(self, *a, **kw):
+        """Wrapper function to execute another process
+
+           Passes off to either ssh or local system based on whether
+           use_ssh is set
+        """
         if self.use_ssh:
             return self.ssh_client.fork(*a, **kw)
         else:
@@ -305,7 +314,7 @@ class Source(object):
     def tick(self):
         """Called for every timer tick. Calls self.get which can be a deferred
         and passes that result back to the queueBack method
-        
+
         Returns a deferred"""
 
         if self.sync:
@@ -319,13 +328,13 @@ class Source(object):
             if event:
                 self.queueBack(event)
 
-        except Exception as e:
-            log.msg("[%s] Unhandled error: %s" % (self.service, e))
+        except Exception as ex:
+            log.msg("[%s] Unhandled error: %s" % (self.service, ex))
 
         self.running = False
 
     def createEvent(self, state, description, metric, prefix=None,
-            hostname=None, aggregation=None, evtime=None):
+                    hostname=None, aggregation=None, evtime=None):
         """Creates an Event object from the Source configuration"""
         if prefix:
             service_name = self.service + "." + prefix
@@ -333,19 +342,25 @@ class Source(object):
             service_name = self.service
 
         return Event(state, service_name, description, metric, self.ttl,
-            hostname=hostname or self.hostname, aggregation=aggregation,
-            evtime=evtime, tags=self.tags, attributes=self.attributes
-        )
+                     hostname=hostname or self.hostname,
+                     aggregation=aggregation,
+                     evtime=evtime, tags=self.tags, attributes=self.attributes)
 
-    def createLog(self, type, data, evtime=None, hostname=None):
+    def createLog(self, evtype, data, evtime=None, hostname=None):
         """Creates an Event object from the Source configuration"""
 
-        return Event(None, type, data, 0, self.ttl,
-            hostname=hostname or self.hostname, evtime=evtime, tags=self.tags, type='log'
-        )
+        return Event(None, evtype, data, 0, self.ttl,
+                     hostname=hostname or self.hostname, evtime=evtime,
+                     tags=self.tags, evtype='log')
 
     def get(self):
+        """Get method for source called every `self.inter`
+           Should return a list of `Event` objects or `None`
+        """
         raise NotImplementedError()
 
     def sshGet(self):
-        raise NotImplementedError("This source does not implement SSH remote checks")
+        """Get method for source if use_ssh is enabled
+        """
+        raise NotImplementedError(
+            "This source does not implement SSH remote checks")

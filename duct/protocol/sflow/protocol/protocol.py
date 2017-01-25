@@ -1,9 +1,17 @@
+"""
+.. module:: protocol
+   :synopsis: SFlow protocol
+
+.. moduleauthor:: Colin Alston <colin@imcol.in>
+"""
 import xdrlib
 
 from duct.protocol.sflow.protocol import flows, counters
 
 
 class Sflow(object):
+    """SFlow protocol stream decoder
+    """
     def __init__(self, payload, host):
         self.host = host
         assert isinstance(payload, bytes)
@@ -16,10 +24,15 @@ class Sflow(object):
             2: CounterSample
         }
 
+        self.samples = []
+        self.sample_count = 0
+
         if self.version == 5:
             self.sflow_v5(u)
 
     def sflow_v5(self, u):
+        """SFlow version 5 decoder
+        """
         self.addrtype = u.unpack_uint()
 
         if self.addrtype == 1:
@@ -40,14 +53,15 @@ class Sflow(object):
         self.samples.sort(key=lambda x: x.sequence)
 
     def decode_samples(self, u):
-        self.samples = []
-        
-        for i in range(self.sample_count):
+        """Decode samples received
+        """
+        for _i in range(self.sample_count):
             sample_type = u.unpack_uint()
-            
             self.samples.append(self.samplers[sample_type](u))
 
 class FlowSample(object):
+    """Flow sample object
+    """
     def __init__(self, u):
         self.size = u.unpack_uint()
 
@@ -61,10 +75,10 @@ class FlowSample(object):
         self.if_outIndex = u.unpack_uint()
 
         self.record_count = u.unpack_uint()
-        
+
         self.flows = {}
 
-        for i in range(self.record_count):
+        for _i in range(self.record_count):
             flow_format = u.unpack_uint()
             flow_head = u.unpack_opaque()
             flow_u = xdrlib.Unpacker(flow_head)
@@ -74,6 +88,8 @@ class FlowSample(object):
                 self.flows[flow_format] = d(flow_u)
 
 class CounterSample(object):
+    """Counter sample object
+    """
     def __init__(self, u):
 
         self.size = u.unpack_uint()
@@ -85,12 +101,12 @@ class CounterSample(object):
 
         self.counters = {}
 
-        for i in range(self.record_count):
+        for _i in range(self.record_count):
             counter_format = u.unpack_uint()
             counter = u.unpack_opaque()
 
             d = counters.getDecoder(counter_format)
-            
+
             if d:
                 self.counters[counter_format] = d(xdrlib.Unpacker(counter))
             else:

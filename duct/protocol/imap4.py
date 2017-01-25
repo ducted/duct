@@ -6,9 +6,12 @@
 .. moduleauthor:: Colin Alston <colin@imcol.in>
 """
 
+# Disable all linting because this module doesn't work on Py3
+# pylint: disable=C0413,E1101,all
+
 import sys
 
-if sys.version_info > (3,0):
+if sys.version_info > (3, 0):
     raise Exception("This protocol is not yet supported on Python 3")
 
 from twisted.internet import defer, reactor, ssl, endpoints, protocol
@@ -17,8 +20,11 @@ from twisted.python import log
 
 
 class IMAPClientProtocol(imap4.IMAP4Client):
+    """IMAP4 client connector protocol
+    """
     greetDeferred = None
     debug = False
+    serverCapabilities = None
 
     def dataReceived(self, data):
         if self.debug:
@@ -28,11 +34,13 @@ class IMAPClientProtocol(imap4.IMAP4Client):
     def serverGreeting(self, caps):
         self.serverCapabilities = caps
         if self.greetDeferred is not None:
-            d, self.greetDeferred = self.greetDeferred, None
-            d.callback(self)
+            de, self.greetDeferred = self.greetDeferred, None
+            de.callback(self)
 
 
 class IMAP4ClientFactory(protocol.ClientFactory):
+    """IMAP4 client factory
+    """
     usedUp = False
     protocol = IMAPClientProtocol
     debug = False
@@ -45,26 +53,27 @@ class IMAP4ClientFactory(protocol.ClientFactory):
         assert not self.usedUp
         self.usedUp = True
 
-        p = self.protocol()
-        p.debug = self.debug
-        p.factory = self
-        p.greetDeferred = self.onConn
+        proto = self.protocol()
+        proto.debug = self.debug
+        proto.factory = self
+        proto.greetDeferred = self.onConn
 
-        p.registerAuthenticator(imap4.PLAINAuthenticator(self.username))
-        p.registerAuthenticator(imap4.LOGINAuthenticator(self.username))
-        p.registerAuthenticator(
-                imap4.CramMD5ClientAuthenticator(self.username))
+        proto.registerAuthenticator(imap4.PLAINAuthenticator(self.username))
+        proto.registerAuthenticator(imap4.LOGINAuthenticator(self.username))
+        proto.registerAuthenticator(
+            imap4.CramMD5ClientAuthenticator(self.username)
+        )
 
-        return p
+        return proto
 
     def clientConnectionFailed(self, connector, reason):
-        d, self.onConn = self.onConn, None
-        d.errback(reason)
+        de, self.onConn = self.onConn, None
+        de.errback(reason)
 
 
 class IMAPClient(object):
-    """IMAP4 Client 
-    
+    """IMAP4 Client
+
     :param host: Server hostname
     :type host: str.
     :param port: Port
@@ -84,6 +93,7 @@ class IMAPClient(object):
         self.password = password
         self.ssl = ssl
         self.debug = debug
+        self.proto = None
 
         self.mailboxes = {}
 
@@ -100,6 +110,7 @@ class IMAPClient(object):
             defer.returnValue(None)
 
         self.connecting = True
+
         endpoint = endpoints.HostnameEndpoint(reactor, self.host, self.port)
 
         if self.ssl:
@@ -108,12 +119,12 @@ class IMAPClient(object):
             )
             endpoint = endpoints.wrapClientTLS(contextFactory, endpoint)
 
-        d = defer.Deferred()
-        factory = IMAP4ClientFactory(self.user, d)
+        de = defer.Deferred()
+        factory = IMAP4ClientFactory(self.user, de)
         factory.debug = self.debug
 
         yield endpoint.connect(factory)
-        self.proto = yield d
+        self.proto = yield de
 
         yield self.proto.authenticate(self.password)
 
@@ -136,24 +147,30 @@ class IMAPClient(object):
 
     @defer.inlineCallbacks
     def useMailbox(self, mailbox):
+        """Select an IMAP mailbox
+        """
         if not self.connected:
             raise Exception("Not connected")
 
         if self.selected != mailbox:
             yield self.proto.select(mailbox)
-    
+
     @defer.inlineCallbacks
     def findMail(self, **kw):
+        """Search for a mail
+        """
         if not self.connected:
             raise Exception("Not connected")
 
-        q = imap4.Query(**kw)
-        mails = yield self.proto.search(q.encode())
+        query = imap4.Query(**kw)
+        mails = yield self.proto.search(query.encode())
 
         defer.returnValue(mails)
-    
+
     @defer.inlineCallbacks
     def getMail(self, mailid):
+        """Retrieve mail body
+        """
         if not self.connected:
             raise Exception("Not connected")
 
@@ -162,6 +179,8 @@ class IMAPClient(object):
 
     @defer.inlineCallbacks
     def deleteMail(self, mailid):
+        """Delete mail
+        """
         if not self.connected:
             raise Exception("Not connected")
 
@@ -169,6 +188,8 @@ class IMAPClient(object):
         yield self.proto.expunge()
 
     def disconnect(self):
+        """Disconnect from IMAP server
+        """
         if not self.connected:
             raise Exception("Not connected")
 

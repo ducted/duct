@@ -44,25 +44,29 @@ class Postfix(Source):
 
         self.spool = self.config.get('spool', '/var/spool/postfix')
         self.paths = ['active', 'deferred', 'maildrop', 'incoming', 'corrupt',
-                 'hold', 'bounce']
+                      'hold', 'bounce']
 
     @defer.inlineCallbacks
     def get(self):
         events = []
         for queue in self.paths:
             abspath = os.path.join(self.spool, queue)
-            
-            out, err, code = yield self.fork('/bin/sh',
-                args=('-c', '"/bin/find %s -type f | /usr/bin/wc -l"' % abspath,))
+
+            out, err, code = yield self.fork(
+                '/bin/sh',
+                args=('-c',
+                      '"/bin/find %s -type f | /usr/bin/wc -l"' % abspath,)
+            )
 
             if code == 0:
                 val = int(out.strip('\n'))
 
                 events.extend([
                     self.createEvent('ok', '%s queue length' % queue, val,
-                        prefix='%s.value' % queue),
+                                     prefix='%s.value' % queue),
                     self.createEvent('ok', 'Queue rate', val,
-                        prefix='%s.rate' % queue, aggregation=Counter)
+                                     prefix='%s.rate' % queue,
+                                     aggregation=Counter)
                 ])
 
             else:

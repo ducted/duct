@@ -1,5 +1,6 @@
 import json
 import socket
+import os
 
 from twisted.trial import unittest
 from twisted.internet import defer, endpoints, reactor

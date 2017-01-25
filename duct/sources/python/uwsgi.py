@@ -6,7 +6,6 @@
 .. moduleauthor:: Colin Alston <colin@imcol.in>
 """
 
-import time
 import json
 
 try:
@@ -15,14 +14,12 @@ except ImportError:
     from io import StringIO
 
 from twisted.internet import defer, reactor
-from twisted.protocols.basic import LineReceiver
 from twisted.internet.protocol import ClientCreator, Protocol
 
 from zope.interface import implementer
 
 from duct.interfaces import IDuctSource
 from duct.objects import Source
-from duct.aggregators import Counter, Counter32
 
 class JSONProtocol(Protocol):
     """
@@ -31,17 +28,19 @@ class JSONProtocol(Protocol):
     delimiter = '\n'
     def __init__(self):
         self.ready = False
-        self.buffer = StringIO()
+        self.buf = StringIO()
         self.d = defer.Deferred()
 
     def dataReceived(self, data):
-        self.buffer.write(data)
+        self.buf.write(data)
 
-    def connectionLost(self, why):
-        self.buffer.seek(0)
-        self.d.callback(json.load(self.buffer))
+    def connectionLost(self, *_a):
+        self.buf.seek(0)
+        self.d.callback(json.load(self.buf))
 
     def disconnect(self):
+        """Disconnect transport
+        """
         return self.transport.loseConnection()
 
 
@@ -50,12 +49,12 @@ class Emperor(Source):
     """Connects to UWSGI Emperor stats and creates useful metrics
 
     **Configuration arguments:**
-    
+
     :param host: Hostname (default localhost)
     :type host: str.
     :param port: Port
     :type port: int.
-    
+
     """
 
     @defer.inlineCallbacks
@@ -63,8 +62,8 @@ class Emperor(Source):
         host = self.config.get('host', 'localhost')
         port = int(self.config.get('port', 6001))
 
-        proto = yield ClientCreator(reactor, JSONProtocol
-            ).connectTCP(host, port)
+        proto = yield ClientCreator(
+            reactor, JSONProtocol).connectTCP(host, port)
 
         stats = yield proto.d
 
@@ -74,7 +73,7 @@ class Emperor(Source):
 
         active = 0
         accepting = 0
-        respawns = 0 
+        respawns = 0
 
         for node in nodes:
             if node['accepting'] > 0:
@@ -85,18 +84,18 @@ class Emperor(Source):
 
             events.extend([
                 self.createEvent('ok', 'accepting', node['accepting'],
-                    prefix=node['id'] + '.accepting'),
+                                 prefix=node['id'] + '.accepting'),
                 self.createEvent('ok', 'respawns', node['respawns'],
-                    prefix=node['id'] + '.respawns'),
+                                 prefix=node['id'] + '.respawns'),
             ])
 
 
         events.extend([
             self.createEvent('ok', 'active', active, prefix='total.active'),
             self.createEvent('ok', 'accepting', accepting,
-                prefix='total.accepting'),
+                             prefix='total.accepting'),
             self.createEvent('ok', 'respawns', respawns,
-                prefix='total.respawns'),
+                             prefix='total.respawns'),
         ])
 
         defer.returnValue(events)

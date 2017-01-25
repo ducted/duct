@@ -1,9 +1,14 @@
-import time
-import uuid
+"""
+.. module:: opentsdb
+   :synopsis: OpenTSDB protocol module
+
+.. moduleauthor:: Colin Alston <colin@imcol.in>
+"""
 import json
 from base64 import b64encode
 
 from duct import utils
+
 
 class OpenTSDBClient(object):
     """Twisted ElasticSearch API
@@ -16,11 +21,14 @@ class OpenTSDBClient(object):
     def _request(self, path, data=None, method='POST'):
         headers = {}
         if self.user:
-            authorization = b64encode('%s:%s' % (self.user, self.password)).decode()
+            authorization = b64encode('%s:%s' % (self.user, self.password)
+                                     ).decode()
             headers['Authorization'] = ['Basic ' + authorization]
 
         return utils.HTTPRequest().getJson(
             self.url + path, method, headers=headers, data=data.encode())
 
     def put(self, data):
+        """Put one or more metrics
+        """
         return self._request('/api/put', json.dumps(data))

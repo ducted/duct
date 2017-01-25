@@ -1,3 +1,9 @@
+"""
+.. module:: libav
+   :synopsis: libav based checks
+
+.. moduleauthor:: Colin Alston <colin@imcol.in>
+"""
 import time
 
 from twisted.internet import defer
@@ -32,8 +38,11 @@ class DarwinRTSP(Source):
 
         t0 = time.time()
         try:
-            out, err, code = yield fork('/usr/bin/avprobe',
-                args=('rtsp://%s/sample_100kbit.mp4' % host, ), timeout=30.0)
+            _out, err, code = yield fork(
+                '/usr/bin/avprobe',
+                args=('rtsp://%s/sample_100kbit.mp4' % host, ),
+                timeout=30.0
+            )
         except:
             code = 1
             err = None
@@ -41,8 +50,8 @@ class DarwinRTSP(Source):
         t_delta = (time.time() - t0) * 1000
 
         if code == 0:
-            e = self.createEvent('ok', 'RTSP Request time to %s' % host, 
-                    t_delta)
+            e = self.createEvent('ok', 'RTSP Request time to %s' % host,
+                                 t_delta)
         else:
             if err:
                 try:
@@ -52,9 +61,8 @@ class DarwinRTSP(Source):
             else:
                 error = "Execution error"
 
-            e = self.createEvent('critical', 
-                    'Unable to stream %s:%s' % (host, error),
-                    t_delta)
+            e = self.createEvent('critical',
+                                 'Unable to stream %s:%s' % (host, error),
+                                 t_delta)
 
         defer.returnValue(e)
-

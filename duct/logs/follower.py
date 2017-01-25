@@ -1,4 +1,11 @@
+"""
+.. module:: follower
+   :synopsis: Log tailing classes
+
+.. moduleauthor:: Colin Alston <colin@imcol.in>
+"""
 import os
+
 
 class LogFollower(object):
     """Provides a class for following log files between runs
@@ -9,26 +16,38 @@ class LogFollower(object):
     :type parser: str
     """
 
-    def __init__(self, logfile, parser=None, tmp_path="/var/lib/duct/", history=False):
+    def __init__(self, logfile, parser=None, tmp_path="/var/lib/duct/",
+                 history=False):
         self.logfile = logfile
-        self.tmp = os.path.join(tmp_path,
-            '%s.lf' % self.logfile.lstrip('/').replace('/','-'))
+        self.tmp = os.path.join(
+            tmp_path,
+            '%s.lf' % self.logfile.lstrip('/').replace('/', '-')
+        )
 
         self.history = history
+
+        self.lastInode = None
+        self.lastSize = -1
 
         self.readLast()
 
         self.parser = parser
 
     def cleanStore(self):
+        """Clear up the log position store
+        """
         os.unlink(self.tmp)
 
     def storeLast(self):
+        """Persist the current position in the file
+        """
         fi = open(self.tmp, 'wt')
         fi.write('%s:%s' % (self.lastSize, self.lastInode))
         fi.close()
 
     def readLast(self):
+        """Read the latest changes in the file
+        """
         if os.path.exists(self.tmp):
             fi = open(self.tmp, 'rt')
             ls, li = fi.read().split(':')
@@ -70,7 +89,7 @@ class LogFollower(object):
             if max_lines and (lines > max_lines):
                 self.storeLast()
                 fi.close()
-                return 
+                return
 
             if '\n' in i:
                 self.lastSize += len(i)
@@ -90,6 +109,6 @@ class LogFollower(object):
         """
         rows = []
 
-        self.get_fn(lambda row: rows.append(row), max_lines=max_lines)
+        self.get_fn(rows.append, max_lines=max_lines)
 
         return rows

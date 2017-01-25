@@ -1,3 +1,9 @@
+"""
+.. module:: sources
+   :synopsis: Base sources for Ducted
+
+.. moduleauthor:: Colin Alston <colin@imcol.in>
+"""
 import time
 
 from zope.interface import implementer
@@ -28,8 +34,6 @@ class Duct(Source):
         self.rtime = time.time()
 
     def get(self):
-        events = []
-
         sources = len(self.duct.sources)
 
         t_delta = time.time() - self.rtime
@@ -39,7 +43,7 @@ class Duct(Source):
         self.events = self.duct.eventCounter
 
         self.rtime = time.time()
-        
+
         return [
             self.createEvent('ok', 'Event rate', erate, prefix="event rate"),
             self.createEvent('ok', 'Sources', sources, prefix="sources"),

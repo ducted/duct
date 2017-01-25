@@ -1,6 +1,13 @@
+"""
+.. module:: logger
+   :synopsis: Output which sends events to the standard logging output
+
+.. moduleauthor:: Colin Alston <colin@imcol.in>
+"""
 from twisted.python import log
 
 from duct.objects import Output
+
 
 class Logger(Output):
     """Logger output
@@ -22,8 +29,10 @@ class Logger(Output):
             self.logfile.close()
 
     def eventsReceived(self, events):
-        for e in events:
+        """Log received events
+        """
+        for ev in events:
             if self.logfile:
-                self.logfile.write(repr(e) + '\n')
+                self.logfile.write(repr(ev) + '\n')
             else:
-                log.msg(repr(e))
+                log.msg(repr(ev))

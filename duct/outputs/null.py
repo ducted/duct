@@ -1,13 +1,14 @@
-from twisted.python import log
+"""
+.. module:: null
+   :synopsis: Null event output. Does nothing
 
+.. moduleauthor:: Colin Alston <colin@imcol.in>
+"""
 from duct.objects import Output
 
+
 class Null(Output):
-    """Null output
-    Throw your events away
-
-    **Configuration arguments:**
-
+    """Null output throws your events away
     """
     def eventsReceived(self, events):
-        return 
+        return

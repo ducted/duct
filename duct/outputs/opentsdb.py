@@ -1,11 +1,15 @@
-import time
-import datetime
+"""
+.. module:: opentsdb
+   :synopsis: OpenTSDB output
 
-from twisted.internet import reactor, defer, task
+.. moduleauthor:: Colin Alston <colin@imcol.in>
+"""
+from twisted.internet import defer, task
 from twisted.python import log
 
 from duct.objects import Output
 from duct.protocol.opentsdb import OpenTSDBClient
+
 
 class OpenTSDB(Output):
     """OpenTSDB HTTP API output
@@ -30,13 +34,14 @@ class OpenTSDB(Output):
     def __init__(self, *a):
         Output.__init__(self, *a)
         self.events = []
-        self.t = task.LoopingCall(self.tick)
+        self.timer = task.LoopingCall(self.tick)
 
         self.inter = float(self.config.get('interval', 1.0))  # tick interval
         self.maxsize = int(self.config.get('maxsize', 250000))
 
         self.user = self.config.get('user')
         self.password = self.config.get('password')
+        self.client = None
 
         self.url = self.config.get('url', 'http://localhost:4242')
 
@@ -53,17 +58,17 @@ class OpenTSDB(Output):
 
         self.client = OpenTSDBClient(self.url, self.user, self.password)
 
-        self.t.start(self.inter)
+        self.timer.start(self.inter)
 
     def stop(self):
         """Stop this client.
         """
-        self.t.stop()
+        self.timer.stop()
 
     def transformEvent(self, ev):
         """Convert an event object into OpenTSDB format
         """
-        d = {
+        data = {
             'timestamp': int(ev.time * 1000),
             'metric': ev.service.replace(' ', '_'),
             'value': ev.metric,
@@ -74,15 +79,17 @@ class OpenTSDB(Output):
         }
 
         if ev.tags:
-            d['tags'] = ",".join(ev.tags)
+            data['tags'] = ",".join(ev.tags)
 
         if ev.attributes:
-            for k, v in ev.attributes.items():
-                d['tags'][k] = v
-        return d
+            for key, val in ev.attributes.items():
+                data['tags'][key] = val
+        return data
 
     def sendEvents(self, events):
-        return self.client.put([self.transformEvent(e) for e in events])
+        """Send events to OpenTSDB
+        """
+        return self.client.put([self.transformEvent(ev) for ev in events])
 
     @defer.inlineCallbacks
     def tick(self):
@@ -107,6 +114,6 @@ class OpenTSDB(Output):
                         for ln in result['error']['trace'].split('\n'):
                             log.msg(ln)
 
-            except Exception as e:
-                log.msg('Could not connect to OpenTSDB ' + str(e))
+            except Exception as ex:
+                log.msg('Could not connect to OpenTSDB ' + str(ex))
                 self.events.extend(events)

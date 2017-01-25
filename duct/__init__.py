@@ -7,5 +7,7 @@
 from duct import service
 
 def makeService(config):
-    # Create DuctService
+    """
+    Create DuctService object
+    """
     return service.DuctService(config)

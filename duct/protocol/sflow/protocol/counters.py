@@ -1,6 +1,15 @@
-from construct import *
+"""
+.. module:: counters
+   :synopsis: SFlow counter object interfaces
+
+.. moduleauthor:: Colin Alston <colin@imcol.in>
+"""
+from construct import Struct, UBInt32, Array, Bytes
+
 
 class InterfaceCounters(object):
+    """Counters for network interfaces
+    """
     def __init__(self, u):
         self.if_index = u.unpack_uint()
         self.if_type = u.unpack_uint()
@@ -23,10 +32,12 @@ class InterfaceCounters(object):
         self.if_outBcast = u.unpack_uint()
         self.if_outDiscard = u.unpack_uint()
         self.if_outError = u.unpack_uint()
- 
+
         self.if_promisc = u.unpack_uint()
 
 class EthernetCounters(object):
+    """Counters for ethernet frames
+    """
     def __init__(self, u):
         self.dot3StatsAlignmentErrors = u.unpack_uint()
         self.dot3StatsFCSErrors = u.unpack_uint()
@@ -43,6 +54,8 @@ class EthernetCounters(object):
         self.dot3StatsSymbolErrors = u.unpack_uint()
 
 class VLANCounters(object):
+    """Counters for VLANs
+    """
     def __init__(self, u):
         self.vlan_id = u.unpack_uint()
         self.octets = u.unpack_uhyper()
@@ -52,6 +65,8 @@ class VLANCounters(object):
         self.discards = u.unpack_uint()
 
 class TokenringCounters(object):
+    """Counters for Token ring networks
+    """
     def __init__(self, u):
         self.dot5StatsLineErrors = u.unpack_uint()
         self.dot5StatsBurstErrors = u.unpack_uint()
@@ -73,6 +88,8 @@ class TokenringCounters(object):
         self.dot5StatsFreqErrors = u.unpack_uint()
 
 class VGCounters(object):
+    """Counters for AnyLan frames
+    """
     def __init__(self, u):
         self.dot5StatsLineErrors = u.unpack_uint()
         self.dot5StatsBurstErrors = u.unpack_uint()
@@ -94,6 +111,8 @@ class VGCounters(object):
         self.dot5StatsFreqErrors = u.unpack_uint()
 
 class HostCounters(object):
+    """Counters for host endpoints
+    """
     format = 2000
     def __init__(self, u):
         self.hostname = u.unpack_string()
@@ -103,25 +122,29 @@ class HostCounters(object):
         self.os_release = u.unpack_string()
 
 class HostAdapters(object):
+    """Counters for HBAs
+    """
     format = 2001
     def __init__(self, u):
         self.adapters = Struct("adapters",
-            UBInt32("count"),
-            Array(lambda c: c.count,
-                Struct("adapter",
-                    UBInt32("index"),
-                    Bytes("MAC", 6)
-                )
-            )
-        ).parse(u.get_buffer())
+                               UBInt32("count"),
+                               Array(lambda c: c.count,
+                                     Struct("adapter",
+                                            UBInt32("index"),
+                                            Bytes("MAC", 6)))
+                              ).parse(u.get_buffer())
 
 class HostParent(object):
+    """Counters for hosts
+    """
     format = 2002
     def __init__(self, u):
         self.container_type = u.unpack_uint()
         self.container_index = u.unpack_uint()
 
 class HostCPUCounters(object):
+    """Counters for host CPU stats
+    """
     format = 2003
     def __init__(self, u):
         self.load_one = u.unpack_float()
@@ -144,6 +167,8 @@ class HostCPUCounters(object):
         self.contexts = u.unpack_uint()
 
 class HostMemoryCounters(object):
+    """Counters for host memory
+    """
     format = 2004
     def __init__(self, u):
         self.mem_total = u.unpack_uhyper()
@@ -159,6 +184,8 @@ class HostMemoryCounters(object):
         self.swap_out = u.unpack_uint()
 
 class DiskIOCounters(object):
+    """Counters for disk IO
+    """
     format = 2005
     def __init__(self, u):
         self.disk_total = u.unpack_uhyper()
@@ -172,6 +199,8 @@ class DiskIOCounters(object):
         self.write_time = u.unpack_uint()
 
 class NetIOCounters(object):
+    """Counters for network interface IO
+    """
     format = 2006
     def __init__(self, u):
         self.bytes_in = u.unpack_uhyper()
@@ -184,6 +213,8 @@ class NetIOCounters(object):
         self.drops_out = u.unpack_uint()
 
 class SocketIPv4Counters(object):
+    """Counters for IPv4 sockets
+    """
     format = 2100
     def __init__(self, u):
         self.protocol = u.unpack_uint()
@@ -193,6 +224,8 @@ class SocketIPv4Counters(object):
         self.remote_port = u.unpack_uint()
 
 class SocketIPv6Counters(object):
+    """Counters for IPv6 sockets
+    """
     format = 2101
     def __init__(self, u):
         self.protocol = u.unpack_uint()
@@ -202,12 +235,16 @@ class SocketIPv6Counters(object):
         self.remote_port = u.unpack_uint()
 
 class VirtMemoryCounters(object):
+    """Counters for virtual memory
+    """
     format = 2102
     def __init__(self, u):
         self.memory = u.unpack_uhyper()
         self.maxMemory = u.unpack_uhyper()
 
 class VirtDiskIOCounters(object):
+    """Counters for virtual disk IO
+    """
     format = 2103
     def __init__(self, u):
         self.capacity = u.unpack_uhyper()
@@ -220,6 +257,8 @@ class VirtDiskIOCounters(object):
         self.errs = u.unpack_uint()
 
 class VirtNetIOCounters(object):
+    """Counters for virtual network adapters
+    """
     format = 2104
     def __init__(self, u):
         self.rx_bytes = u.unpack_uhyper()
@@ -231,7 +270,9 @@ class VirtNetIOCounters(object):
         self.tx_errs = u.unpack_uint()
         self.tx_drop = u.unpack_uint()
 
-def getDecoder(format):
+def getDecoder(fmt):
+    """Retrieve the decoder associated with a frame format ID
+    """
     decoders = {
         1: InterfaceCounters,
         2: EthernetCounters,
@@ -251,5 +292,4 @@ def getDecoder(format):
         2104: VirtNetIOCounters
     }
 
-    return decoders.get(format, None)
-
+    return decoders.get(fmt, None)

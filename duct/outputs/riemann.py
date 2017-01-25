@@ -1,14 +1,21 @@
+"""
+.. module:: riemann
+   :synopsis: Riemann output
+
+.. moduleauthor:: Colin Alston <colin@imcol.in>
+"""
 import time
 import random
 
 from twisted.internet import reactor, defer, task
 from twisted.python import log
 
+# pylint: disable=C0412
 try:
     from OpenSSL import SSL
     from twisted.internet import ssl
 except:
-    SSL=None
+    SSL = None
 
 from duct.protocol import riemann
 
@@ -16,6 +23,8 @@ from duct.objects import Output
 
 if SSL:
     class ClientTLSContext(ssl.ClientContextFactory):
+        """SSL Context factory
+        """
         def __init__(self, key, cert):
             self.key = key
             self.cert = cert
@@ -28,6 +37,7 @@ if SSL:
 
             return ctx
 
+
 class RiemannTCP(Output):
     """Riemann TCP output
 
@@ -37,7 +47,8 @@ class RiemannTCP(Output):
     :type server: str.
     :param port: Riemann server port (default: 5555)
     :type port: int.
-    :param failover: Enable server failover, in which case `server` may be a list
+    :param failover: Enable server failover, in which case `server` may be a
+                     list
     :type failover: bool.
     :param maxrate: Maximum de-queue rate (0 is no limit)
     :type maxrate: int.
@@ -58,13 +69,15 @@ class RiemannTCP(Output):
     """
     def __init__(self, *a):
         Output.__init__(self, *a)
-        self.t = task.LoopingCall(self.tick)
+        self.timer = task.LoopingCall(self.tick)
 
         self.inter = float(self.config.get('interval', 1.0))  # tick interval
         self.pressure = int(self.config.get('pressure', -1))
         self.maxsize = int(self.config.get('maxsize', 250000))
         self.expire = self.config.get('expire', False)
         self.allow_nan = self.config.get('allow_nan', True)
+        self.factory = None
+        self.connector = None
 
         maxrate = int(self.config.get('maxrate', 0))
 
@@ -95,11 +108,13 @@ class RiemannTCP(Output):
             initial = server
 
         log.msg('Connecting to Riemann on %s:%s' % (initial, port))
-        
+
         if self.tls:
             if SSL:
-                self.connector = reactor.connectSSL(initial, port, self.factory,
-                    ClientTLSContext(self.key, self.cert))
+                self.connector = reactor.connectSSL(
+                    initial, port, self.factory,
+                    ClientTLSContext(self.key, self.cert)
+                )
             else:
                 log.msg('[FATAL] SSL support not available!' \
                     ' Please install PyOpenSSL. Exiting now')
@@ -107,24 +122,25 @@ class RiemannTCP(Output):
         else:
             self.connector = reactor.connectTCP(initial, port, self.factory)
 
-        d = defer.Deferred()
+        de = defer.Deferred()
 
         def cb():
-            # Wait until we have a useful proto object
+            """Wait until we have a useful proto object
+            """
             if hasattr(self.factory, 'proto') and self.factory.proto:
-                self.t.start(self.inter)
-                d.callback(None)
+                self.timer.start(self.inter)
+                de.callback(None)
             else:
                 reactor.callLater(0.01, cb)
 
         cb()
 
-        return d
+        return de
 
     def stop(self):
         """Stop this client.
         """
-        self.t.stop()
+        self.timer.stop()
         self.factory.stopTrying()
         self.connector.disconnect()
 
@@ -133,12 +149,13 @@ class RiemannTCP(Output):
         """
         if self.factory.proto:
             # Check backpressure
-            if (self.pressure < 0) or (self.factory.proto.pressure <= self.pressure):
+            if (self.pressure < 0) or (
+                    self.factory.proto.pressure <= self.pressure):
                 self.emptyQueue()
         elif self.expire:
             # Check queue age and expire stale events
-            for i, e in enumerate(self.events):
-                if (time.time() - e.time) > e.ttl:
+            for i, ev in enumerate(self.events):
+                if (time.time() - ev.time) > ev.ttl:
                     self.events.pop(i)
 
     def emptyQueue(self):
@@ -156,7 +173,8 @@ class RiemannTCP(Output):
             if self.allow_nan:
                 self.factory.proto.sendEvents(events)
             else:
-                self.factory.proto.sendEvents([e for e in events if e.metric is not None])
+                self.factory.proto.sendEvents([ev for ev in events
+                                               if ev.metric is not None])
 
 
 class RiemannUDP(Output):
@@ -173,6 +191,7 @@ class RiemannUDP(Output):
     def __init__(self, *a):
         Output.__init__(self, *a)
         self.protocol = None
+        self.endpoint = None
 
     def createClient(self):
         """Create a UDP connection to Riemann"""
@@ -180,12 +199,14 @@ class RiemannUDP(Output):
         port = self.config.get('port', 5555)
 
         def connect(ip):
+            """Connect to the IP address
+            """
             self.protocol = riemann.RiemannUDP(ip, port)
             self.endpoint = reactor.listenUDP(0, self.protocol)
 
-        d = reactor.resolve(server)
-        d.addCallback(connect)
-        return d
+        de = reactor.resolve(server)
+        de.addCallback(connect)
+        return de
 
     def eventsReceived(self, events):
         """Receives a list of events and transmits them to Riemann
@@ -195,4 +216,3 @@ class RiemannUDP(Output):
         """
         if self.protocol:
             self.protocol.sendEvents(events)
-

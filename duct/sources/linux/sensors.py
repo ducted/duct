@@ -1,5 +1,10 @@
-import os
+"""
+.. module:: sensors
+   :platform: unix
+   :synopsis: Provides checks for system sensors and SMART devices
 
+.. moduleauthor:: Colin Alston <colin@imcol.in>
+"""
 from zope.interface import implementer
 
 from twisted.internet import defer
@@ -24,7 +29,7 @@ class Sensors(Source):
 
     @defer.inlineCallbacks
     def _get_sensors(self):
-        out, err, code = yield self.fork('/usr/bin/sensors')
+        out, _err, code = yield self.fork('/usr/bin/sensors')
         if code == 0:
             defer.returnValue(out.strip('\n').split('\n'))
         else:
@@ -42,15 +47,13 @@ class Sensors(Source):
                 n, v = l.split(':')
                 vals = v.strip().split()
 
-                if n=='Adapter':
+                if n == 'Adapter':
                     continue
 
                 if '\xc2\xb0' in vals[0]:
                     val = vals[0].split('\xc2\xb0')[0]
-                    unit = vals[0][-1]
-                elif len(vals)>1:
+                elif len(vals) > 1:
                     val = vals[0]
-                    unit = vals[1]
                 else:
                     continue
 
@@ -61,7 +64,7 @@ class Sensors(Source):
             else:
                 adapter = l
                 adapters[adapter] = {}
-        
+
         return adapters
 
     @defer.inlineCallbacks
@@ -75,10 +78,11 @@ class Sensors(Source):
             for sensor, val in v.items():
                 events.append(
                     self.createEvent('ok',
-                        'Sensor %s:%s - %s' % (adapter, sensor, val),
-                        val,
-                        prefix='%s.%s' % (adapter, sensor,)))
-        
+                                     'Sensor %s:%s - %s' % (
+                                         adapter, sensor, val),
+                                     val,
+                                     prefix='%s.%s' % (adapter, sensor,)))
+
         defer.returnValue(events)
 
 @implementer(IDuctSource)
@@ -99,8 +103,8 @@ class SMART(Source):
 
     @defer.inlineCallbacks
     def _get_disks(self):
-        out, err, code = yield self.fork('/usr/sbin/smartctl',
-            args=('--scan',))
+        out, _err, code = yield self.fork('/usr/sbin/smartctl',
+                                          args=('--scan',))
 
         if code != 0:
             defer.returnValue([])
@@ -115,8 +119,8 @@ class SMART(Source):
 
     @defer.inlineCallbacks
     def _get_smart(self, device):
-        out, err, code = yield self.fork('/usr/sbin/smartctl',
-            args=('-A', device))
+        out, _err, code = yield self.fork('/usr/sbin/smartctl',
+                                          args=('-A', device))
 
         if code == 0:
             defer.returnValue(out.strip('\n').split('\n'))
@@ -132,8 +136,8 @@ class SMART(Source):
                 continue
 
             if mark:
-                (id, attribute, flag, val, worst,thresh, type, u, wf, raw
-                    ) = ln.split(None, 9)
+                (_id, attribute, _flag, _val, _worst, _thresh, _type, _u, _wf,
+                 raw) = ln.split(None, 9)
 
                 try:
                     raw = int(raw.split()[0])
@@ -143,13 +147,11 @@ class SMART(Source):
 
             if ln[:3] == 'ID#':
                 mark = True
-        
+
         return attributes
 
     @defer.inlineCallbacks
     def get(self):
-        disks = self._get_disks()
-
         if not self.devices:
             self.devices = yield self._get_disks()
 
@@ -162,8 +164,10 @@ class SMART(Source):
             for sensor, val in stats.items():
                 events.append(
                     self.createEvent('ok',
-                        'Attribute %s:%s - %s' % (disk, sensor, val),
-                        val,
-                        prefix='%s.%s' % (disk, sensor,)))
-        
+                                     'Attribute %s:%s - %s' % (
+                                         disk, sensor, val),
+                                     val,
+                                     prefix='%s.%s' % (disk, sensor,))
+                )
+
         defer.returnValue(events)

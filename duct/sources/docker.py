@@ -5,10 +5,7 @@
 
 .. moduleauthor:: Colin Alston <colin.alston@gmail.com>
 """
-
-import json
-
-from twisted.internet import defer, reactor
+from twisted.internet import defer
 
 from zope.interface import implementer
 
@@ -62,14 +59,16 @@ class ContainerStats(Source):
 
         containers = yield HTTPRequest().getJson(
             '%s/containers/json' % pref, socket=sock)
-        
+
         allStats = {}
 
         for container in containers:
             name = container.get('Names', [None])[0].lstrip('/').encode('ascii')
 
             stats = yield HTTPRequest().getJson(
-                '%s/containers/%s/stats?stream=false' % (pref, name), socket=sock)
+                '%s/containers/%s/stats?stream=false' % (pref, name),
+                socket=sock
+            )
 
             detail = yield HTTPRequest().getJson(
                 '%s/containers/%s/json' % (pref, name), socket=sock)
@@ -95,8 +94,8 @@ class ContainerStats(Source):
             dockCpu = stats['cpu_stats']['cpu_usage']['total_usage']
 
             if self.cache.contains(name):
-                lastTime, lastStats = self.cache.get(name)
-            
+                _lastTime, lastStats = self.cache.get(name)
+
                 sysDelta = sysCpu - lastStats[0]
                 dockDelta = dockCpu - lastStats[1]
 
@@ -117,10 +116,11 @@ class ContainerStats(Source):
         for name, container in stats.items():
             for pref, val in container.items():
                 if pref.startswith('io_'):
-                    events.append(self.createEvent('ok', '', val,
+                    events.append(self.createEvent(
+                        'ok', '', val,
                         prefix='%s.%s' % (name, pref),
-                        aggregation=Counter64)
-                    )
+                        aggregation=Counter64
+                    ))
                 else:
                     events.append(self.createEvent(
                         'ok', '', val, prefix='%s.%s' % (name, pref)))

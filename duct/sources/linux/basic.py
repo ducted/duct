@@ -1,12 +1,16 @@
-import time
+"""
+.. module:: basic
+   :platform: unix
+   :synopsis: Basic linux host checks
 
+.. moduleauthor:: Colin Alston <colin@imcol.in>
+"""
 from zope.interface import implementer
 
 from twisted.internet import defer
 
 from duct.interfaces import IDuctSource
 from duct.objects import Source
-from duct.utils import fork
 from duct.aggregators import Counter64
 
 
@@ -66,7 +70,6 @@ class DiskIO(Source):
         self.twc = {}
 
     def _parse_stats(self, stats):
-        disks = {}
         events = []
         for s in stats:
             parts = s.strip().split()
@@ -77,12 +80,11 @@ class DiskIO(Source):
 
                 if self.devices and (dname not in self.devices):
                     continue
-                
+
                 nums = [int(i) for i in parts[3:]]
 
-                reads, read_m, read_sec, read_t = nums[:4]
-                writes, write_m, write_sec, write_t = nums[4:8]
-                cur_io, io_t, io_wt = nums[8:]
+                reads, _readm, read_sec, read_t = nums[:4]
+                writes, _writem, write_sec, write_t = nums[4:8]
 
                 # Calculate the average latency of read/write ops
                 if n in self.tcache:
@@ -119,25 +121,33 @@ class DiskIO(Source):
                 self.tcache[n] = (reads, writes, read_t, write_t)
 
                 if read_lat:
-                     events.append(self.createEvent('ok',
-                        'Read latency (ms)', read_lat,
-                        prefix='%s.read_latency' % dname))
+                    events.append(self.createEvent(
+                        'ok',
+                        'Read latency (ms)',
+                        read_lat,
+                        prefix='%s.read_latency' % dname
+                    ))
 
                 if write_lat:
-                     events.append(self.createEvent('ok',
+                    events.append(self.createEvent(
+                        'ok',
                         'Write latency (ms)', write_lat,
-                        prefix='%s.write_latency' % dname))
+                        prefix='%s.write_latency' % dname
+                    ))
 
                 events.extend([
-                    self.createEvent('ok', 'Reads' , reads,
-                        prefix='%s.reads' % dname, aggregation=Counter64),
-                    self.createEvent('ok', 'Read Bps' , read_sec * 512,
-                        prefix='%s.read_bytes' % dname, aggregation=Counter64),
-
+                    self.createEvent('ok', 'Reads', reads,
+                                     prefix='%s.reads' % dname,
+                                     aggregation=Counter64),
+                    self.createEvent('ok', 'Read Bps', read_sec * 512,
+                                     prefix='%s.read_bytes' % dname,
+                                     aggregation=Counter64),
                     self.createEvent('ok', 'Writes', writes,
-                        prefix='%s.writes' % dname, aggregation=Counter64),
+                                     prefix='%s.writes' % dname,
+                                     aggregation=Counter64),
                     self.createEvent('ok', 'Write Bps', write_sec * 512,
-                        prefix='%s.write_bytes' % dname, aggregation=Counter64),
+                                     prefix='%s.write_bytes' % dname,
+                                     aggregation=Counter64),
                 ])
 
         return events
@@ -152,7 +162,7 @@ class DiskIO(Source):
                 self._parse_stats(stats))
         else:
             raise Exception(err)
-            
+
     def _getstats(self):
         stats = open('/proc/diskstats', 'rt').read()
 
@@ -174,12 +184,14 @@ class CPU(Source):
     """
 
     cols = ['user', 'nice', 'system', 'idle', 'iowait', 'irq',
-        'softirq', 'steal', 'guest', 'guest_nice']
+            'softirq', 'steal', 'guest', 'guest_nice']
 
     def __init__(self, *a):
         Source.__init__(self, *a)
 
         self.cpu = None
+        self.prev_total = 0
+        self.prev_usage = 0
 
     def _read_proc_stat(self):
         with open('/proc/stat', 'rt') as procstat:
@@ -191,7 +203,7 @@ class CPU(Source):
         cpu = (cpu + [0, 0, 0])[:10]
 
         (user, nice, system, idle, iowait, irq,
-         softirq, steal, guest, guest_nice) = cpu
+         softirq, steal, _guest, _guestnice) = cpu
 
         usage = user + nice + system + irq + softirq + steal
         total = usage + iowait + idle
@@ -225,7 +237,9 @@ class CPU(Source):
     def _transpose_metrics(self, metrics):
         if metrics:
             events = [
-                self.createEvent('ok', 'CPU %s %s%%' % (name, int(cpu_m * 100)), cpu_m, prefix=name)
+                self.createEvent('ok',
+                                 'CPU %s %s%%' % (name, int(cpu_m * 100)),
+                                 cpu_m, prefix=name)
                 for name, cpu_m in metrics[1:]
             ]
 
@@ -276,7 +290,7 @@ class Memory(Source):
 
         return self.createEvent('ok', 'Memory %s/%s' % (used, total),
                                 used/float(total))
- 
+
     def get(self):
         mem = open('/proc/meminfo')
         return self._parse_stats(mem)
@@ -313,13 +327,13 @@ class DiskFree(Source):
     def get(self):
         disks = self.config.get('disks')
 
-        out, err, code = yield self.fork('/bin/df', args=('-lPx', 'tmpfs',))
+        out, _, _ = yield self.fork('/bin/df', args=('-lPx', 'tmpfs',))
 
         out = [i.split() for i in out.strip('\n').split('\n')[1:]]
 
         events = []
 
-        for disk, size, used, free, util, mount in out:
+        for disk, _size, used, free, util, _mnt in out:
             if disks and (disk not in disks):
                 continue
 
@@ -374,32 +388,32 @@ class Network(Source):
             rx_bytes = int(items[9])
             rx_packets = int(items[10])
             rx_err = int(items[11])
-            
+
             ev.extend([
                 self.createEvent('ok',
-                    'Network %s TX bytes/sec' % (iface),
-                    tx_bytes, prefix='%s.tx_bytes' % iface,
-                    aggregation=Counter64),
+                                 'Network %s TX bytes/sec' % (iface),
+                                 tx_bytes, prefix='%s.tx_bytes' % iface,
+                                 aggregation=Counter64),
                 self.createEvent('ok',
-                    'Network %s TX packets/sec' % (iface),
-                    tx_packets, prefix='%s.tx_packets' % iface,
-                    aggregation=Counter64),
+                                 'Network %s TX packets/sec' % (iface),
+                                 tx_packets, prefix='%s.tx_packets' % iface,
+                                 aggregation=Counter64),
                 self.createEvent('ok',
-                    'Network %s TX errors/sec' % (iface),
-                    tx_err, prefix='%s.tx_errors' % iface,
-                    aggregation=Counter64),
+                                 'Network %s TX errors/sec' % (iface),
+                                 tx_err, prefix='%s.tx_errors' % iface,
+                                 aggregation=Counter64),
                 self.createEvent('ok',
-                    'Network %s RX bytes/sec' % (iface),
-                    rx_bytes, prefix='%s.rx_bytes' % iface,
-                    aggregation=Counter64),
+                                 'Network %s RX bytes/sec' % (iface),
+                                 rx_bytes, prefix='%s.rx_bytes' % iface,
+                                 aggregation=Counter64),
                 self.createEvent('ok',
-                    'Network %s RX packets/sec' % (iface),
-                    rx_packets, prefix='%s.rx_packets' % iface,
-                    aggregation=Counter64),
+                                 'Network %s RX packets/sec' % (iface),
+                                 rx_packets, prefix='%s.rx_packets' % iface,
+                                 aggregation=Counter64),
                 self.createEvent('ok',
-                    'Network %s RX errors/sec' % (iface),
-                    rx_err, prefix='%s.rx_errors' % iface,
-                    aggregation=Counter64),
+                                 'Network %s RX errors/sec' % (iface),
+                                 rx_err, prefix='%s.rx_errors' % iface,
+                                 aggregation=Counter64),
             ])
 
         return ev
@@ -408,13 +422,14 @@ class Network(Source):
         proc_dev = open('/proc/net/dev', 'rt').read()
 
         return proc_dev.strip('\n').split('\n')[2:]
-    
+
     @defer.inlineCallbacks
     def sshGet(self):
         net, err, code = yield self.fork('/bin/cat /proc/net/dev')
 
         if code == 0:
-            defer.returnValue(self._parse_stats(net.strip('\n').split('\n')[2:]))
+            defer.returnValue(self._parse_stats(
+                net.strip('\n').split('\n')[2:]))
         else:
             raise Exception(err)
 

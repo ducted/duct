@@ -69,7 +69,7 @@ class Queues(Source):
             events = []
 
             for row in rows:
-                if ("..." in row):
+                if "..." in row:
                     continue
                 name, ready, unack = row.split()
                 ready = int(ready)
@@ -93,10 +93,16 @@ class Queues(Source):
                     urate = (unack - last_unack)/float(t - self.last_t)
 
                     events.extend([
-                        self.createEvent('ok', '%s unacknowledged rate: %0.2f' % (
-                            name, urate), urate, prefix='%s.unack_rate' % name),
-                        self.createEvent('ok', '%s ready rate: %0.2f' % (
-                            name, rrate), rrate, prefix='%s.ready_rate' % name)
+                        self.createEvent(
+                            'ok',
+                            '%s unacknowledged rate: %0.2f' % (name, urate),
+                            urate, prefix='%s.unack_rate' % name
+                        ),
+                        self.createEvent(
+                            'ok',
+                            '%s ready rate: %0.2f' % (name, rrate),
+                            rrate, prefix='%s.ready_rate' % name
+                        )
                     ])
 
                 self.ready[name] = ready
@@ -108,18 +114,26 @@ class Queues(Source):
                 urate = (total_unack - self.last_unack)/float(t - self.last_t)
 
                 events.extend([
-                    self.createEvent('ok', 
+                    self.createEvent(
+                        'ok',
                         'Total unacknowledged rate: %0.2f' % urate,
-                        urate, prefix='total.unack_rate'),
-                    self.createEvent('ok', 
+                        urate, prefix='total.unack_rate'
+                    ),
+                    self.createEvent(
+                        'ok',
                         'Total ready rate: %0.2f' % rrate,
-                        rrate, prefix='total.ready_rate'),
-                    self.createEvent('ok', 
+                        rrate, prefix='total.ready_rate'
+                    ),
+                    self.createEvent(
+                        'ok',
                         'Total unacknowledged messages: %s' % total_unack,
-                        total_unack, prefix='total.unack'),
-                    self.createEvent('ok', 
+                        total_unack, prefix='total.unack'
+                    ),
+                    self.createEvent(
+                        'ok',
                         'Total ready messages: %s' % total_ready,
-                        total_ready, prefix='total.ready')
+                        total_ready, prefix='total.ready'
+                    )
                 ])
 
             self.last_ready = total_ready

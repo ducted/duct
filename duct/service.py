@@ -1,6 +1,5 @@
 """
 .. module:: service
-   :platform: Unix
    :synopsis: Core service classes
 
 .. moduleauthor:: Colin Alston <colin@imcol.in>
@@ -13,18 +12,14 @@ import importlib
 import re
 import copy
 
-import yaml
-
 from twisted.application import service
 from twisted.internet import task, reactor, defer
 from twisted.python import log
 
-from duct.protocol import riemann
-
 
 class DuctService(service.Service):
-    """ Duct service
-    
+    """Duct service
+
     Runs timers, configures sources and and manages the queue
     """
     def __init__(self, config):
@@ -46,8 +41,6 @@ class DuctService(service.Service):
         self.watchdog = None
 
         self.config = config
-
-        both = lambda i1, i2, t: isinstance(i1, t) and isinstance(i2, t)
 
         if os.path.exists('/var/lib/duct'):
             sys.path.append('/var/lib/duct')
@@ -87,7 +80,7 @@ class DuctService(service.Service):
         outputs = config.get('outputs', [defaultOutput])
 
         for output in outputs:
-            if not ('debug' in output):
+            if 'debug' not in output:
                 output['debug'] = self.debug
 
             cl = output['output'].split('.')[-1]                # class
@@ -109,7 +102,9 @@ class DuctService(service.Service):
             reactor.callLater(0, outputObj.createClient)
 
     def createSource(self, source):
-        # 
+        """Construct the source object as defined in the configuration
+        """
+
         if source.get('path'):
             path = source['path']
             if path not in sys.path:
@@ -122,27 +117,27 @@ class DuctService(service.Service):
         # Import the module and get the object source we care about
         sourceObj = getattr(importlib.import_module(path), cl)
 
-        if not ('debug' in source):
+        if 'debug' not in source:
             source['debug'] = self.debug
 
-        if not ('ttl' in source.keys()):
+        if 'ttl' not in source.keys():
             source['ttl'] = self.ttl
 
-        if not ('interval' in source.keys()):
+        if 'interval' not in source.keys():
             source['interval'] = self.inter
 
         return sourceObj(source, self.sendEvent, self)
 
     def setupTriggers(self, source, sobj):
+        """Setup trigger actions for a source
+        """
         if source.get('critical'):
-            self.critical[sobj] = [
-                (re.compile(k), v) for k, v in source['critical'].items()
-            ]
+            self.critical[sobj] = [(re.compile(key), val)
+                                   for key, val in source['critical'].items()]
 
         if source.get('warning'):
-            self.warn[sobj] = [
-                (re.compile(k), v) for k, v in source['warning'].items()
-            ]
+            self.warn[sobj] = [(re.compile(key), val)
+                               for key, val in source['warning'].items()]
 
     def setupSources(self, config):
         """Sets up source objects from the given config"""
@@ -159,56 +154,62 @@ class DuctService(service.Service):
         queue = []
         for ev in events:
             if ev.aggregation:
-                id = ev.id()
+                eid = ev.eid()
                 thisM = ev.metric
 
-                if id in self.evCache:
-                    lastM, lastTime = self.evCache[id]
+                if eid in self.evCache:
+                    lastM, lastTime = self.evCache[eid]
                     tDelta = ev.time - lastTime
-                    m = ev.aggregation(
+                    metric = ev.aggregation(
                         lastM, ev.metric, tDelta)
-                    if m:
-                        ev.metric = m
+                    if metric:
+                        ev.metric = metric
                         queue.append(ev)
 
-                self.evCache[id] = (thisM, ev.time)
+                self.evCache[eid] = (thisM, ev.time)
             else:
                 queue.append(ev)
 
         return queue
 
     def setStates(self, source, queue):
+        """
+        Check Event triggers against the configured source and apply the
+        corresponding state
+        """
         for ev in queue:
             if ev.state == 'ok':
-                for k, v in self.warn.get(source, []):
-                    if k.match(ev.service):
-                        s = eval("service %s" % v, {'service': ev.metric})
-                        if s:
+                for key, val in self.warn.get(source, []):
+                    if key.match(ev.service):
+                        state = eval("service %s" % val, {'service': ev.metric})
+                        if state:
                             ev.state = 'warning'
 
-                for k, v in self.critical.get(source, []):
-                    if k.match(ev.service):
-                        s = eval("service %s" % v, {'service': ev.metric})
-                        if s:
+                for key, val in self.critical.get(source, []):
+                    if key.match(ev.service):
+                        state = eval("service %s" % val, {'service': ev.metric})
+                        if state:
                             ev.state = 'critical'
 
     def routeEvent(self, source, events):
+        """Route event to the queue of the output configured for it
+        """
         routes = source.config.get('route', None)
-    
+
         if not isinstance(routes, list):
             routes = [routes]
 
         for route in routes:
             if self.debug:
                 log.msg("Sending events %s to %s" % (events, route))
- 
+
             if not route in self.outputs:
                 # Non existant route
                 log.msg('Could not route %s -> %s.' % (
                     source.config['service'], route))
             else:
                 for output in self.outputs[route]:
-                   reactor.callLater(0, output.eventsReceived, events)
+                    reactor.callLater(0, output.eventsReceived, events)
 
     def sendEvent(self, source, events):
         """Callback that all event sources call when they have a new event
@@ -220,7 +221,7 @@ class DuctService(service.Service):
         else:
             self.eventCounter += 1
             events = [events]
-    
+
         queue = self._aggregateQueue(events)
 
         if queue:
@@ -256,48 +257,50 @@ class DuctService(service.Service):
 
         reactor.callLater(stagger, self.startWatchdog)
         self.running = 1
- 
+
     def startWatchdog(self):
-        # Start source watchdog
+        """Start source watchdog
+        """
         self.watchdog = task.LoopingCall(self.sourceWatchdog)
         self.watchdog.start(10)
 
+    @defer.inlineCallbacks
     def sourceWatchdog(self):
-        """Watchdog timer function. 
+        """Watchdog timer function.
 
         Recreates sources which have not generated events in 10*interval if
         they have watchdog set to true in their configuration
         """
         for i, source in enumerate(self.sources):
             if not source.config.get('watchdog', False):
-                continue 
-            sn = repr(source)
+                continue
             last = self.lastEvents.get(source, None)
             if last:
+                sn = repr(source)
                 try:
                     if last < (time.time()-(source.inter*10)):
                         log.msg("Trying to restart stale source %s: %ss" % (
                             sn, int(time.time() - last)
                         ))
 
-                        s = self.sources.pop(i)
+                        source = self.sources.pop(i)
                         try:
-                            s.t.stop()
-                        except Exception as e:
+                            yield source.stopTimer()
+                        except Exception as ex:
                             log.msg("Could not stop timer for %s: %s" % (
-                                sn, e))
+                                sn, ex))
 
-                        config = copy.deepcopy(s.config)
+                        config = copy.deepcopy(source.config)
 
                         del self.lastEvents[source]
-                        del s, source
+                        del source
 
                         source = self.createSource(config)
 
                         reactor.callLater(0, self._startSource, source)
-                except Exception as e:
+                except Exception as ex:
                     log.msg("Could not reset source %s: %s" % (
-                        sn, e))
+                        sn, ex))
 
     @defer.inlineCallbacks
     def stopService(self):
@@ -309,6 +312,6 @@ class DuctService(service.Service):
         for source in self.sources:
             yield defer.maybeDeferred(source.stopTimer)
 
-        for n, outputs in self.outputs.items():
+        for _, outputs in self.outputs.items():
             for output in outputs:
                 yield defer.maybeDeferred(output.stop)
