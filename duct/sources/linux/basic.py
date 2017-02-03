@@ -181,6 +181,8 @@ class CPU(Source):
 
     :(service name): Percentage CPU utilisation
     :(service name).(type): Percentage CPU utilisation by type
+    :(service name).coreX: Percentage CPU utilisation per core
+    :(service name).coreX.(type): Percentage CPU utilisation per core by type
     """
 
     cols = ['user', 'nice', 'system', 'idle', 'iowait', 'irq',
@@ -189,15 +191,20 @@ class CPU(Source):
     def __init__(self, *a):
         Source.__init__(self, *a)
 
-        self.cpu = None
-        self.prev_total = 0
-        self.prev_usage = 0
+        self.cpu = {}
+        self.prev_total = {}
+        self.prev_usage = {}
 
     def _read_proc_stat(self):
+        cpus = []
         with open('/proc/stat', 'rt') as procstat:
-            return procstat.readline().strip('\n')
+            for l in procstat:
+                if l.startswith('cpu'):
+                    cpus.append(l.strip('\n'))
+        return cpus
 
     def _calculate_metrics(self, stat):
+        cpuid = stat.split()[0]
         cpu = [int(i) for i in stat.split()[1:]]
         # We might not have all the virt-related numbers, so zero-pad.
         cpu = (cpu + [0, 0, 0])[:10]
@@ -208,43 +215,44 @@ class CPU(Source):
         usage = user + nice + system + irq + softirq + steal
         total = usage + iowait + idle
 
-        if not self.cpu:
+        if not self.cpu.get(cpuid):
             # No initial values, so set them and return no events.
-            self.cpu = cpu
-            self.prev_total = total
-            self.prev_usage = usage
+            self.cpu[cpuid] = cpu
+            self.prev_total[cpuid] = total
+            self.prev_usage[cpuid] = usage
             return None
 
-        total_diff = total - self.prev_total
+        total_diff = total - self.prev_total[cpuid]
 
         if total_diff != 0:
-            metrics = [(None, (usage - self.prev_usage) / float(total_diff))]
+            metrics = [(None, (usage - self.prev_usage[cpuid]) / float(total_diff))]
 
             for i, name in enumerate(self.cols):
-                prev = self.cpu[i]
+                prev = self.cpu[cpuid][i]
                 cpu_m = (cpu[i] - prev) / float(total_diff)
 
                 metrics.append((name, cpu_m))
 
-            self.cpu = cpu
-            self.prev_total = total
-            self.prev_usage = usage
+            self.cpu[cpuid] = cpu
+            self.prev_total[cpuid] = total
+            self.prev_usage[cpuid] = usage
 
             return metrics
 
         return None
 
-    def _transpose_metrics(self, metrics):
+    def _transpose_metrics(self, metrics, prefix):
         if metrics:
             events = [
                 self.createEvent('ok',
                                  'CPU %s %s%%' % (name, int(cpu_m * 100)),
-                                 cpu_m, prefix=name)
+                                 cpu_m, prefix=prefix+name)
                 for name, cpu_m in metrics[1:]
             ]
 
             events.append(self.createEvent(
-                'ok', 'CPU %s%%' % int(metrics[0][1] * 100), metrics[0][1]))
+                'ok', 'CPU %s%%' % int(metrics[0][1] * 100), metrics[0][1],
+                prefix=prefix.rstrip('.')))
 
             return events
         return None
@@ -260,8 +268,17 @@ class CPU(Source):
 
     def get(self):
         stat = self._read_proc_stat()
-        stats = self._calculate_metrics(stat)
-        return self._transpose_metrics(stats)
+        metrics = []
+        for cpu in stat:
+            if cpu.split()[0] == 'cpu':
+                prefix = ""
+            else:
+                prefix = 'core' + cpu.split()[0].strip('cpu') + '.'
+            stats = self._calculate_metrics(cpu)
+            if stats:
+                metrics.extend(self._transpose_metrics(stats, prefix))
+
+        return metrics or None
 
 
 @implementer(IDuctSource)
