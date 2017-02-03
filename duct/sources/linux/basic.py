@@ -260,7 +260,6 @@ class CPU(Source):
 
     @defer.inlineCallbacks
     def sshGet(self):
-        q = yield self.fork('cat /proc/stat')
         procstat, err, code = yield self.fork('cat /proc/stat')
         if code == 0:
             metrics = []
