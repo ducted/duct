@@ -225,7 +225,8 @@ class CPU(Source):
         total_diff = total - self.prev_total[cpuid]
 
         if total_diff != 0:
-            metrics = [(None, (usage - self.prev_usage[cpuid]) / float(total_diff))]
+            metrics = [(None,
+                        (usage - self.prev_usage[cpuid]) / float(total_diff))]
 
             for i, name in enumerate(self.cols):
                 prev = self.cpu[cpuid][i]
@@ -259,10 +260,21 @@ class CPU(Source):
 
     @defer.inlineCallbacks
     def sshGet(self):
-        procstat, err, code = yield self.fork('/usr/bin/head -n 1 /proc/stat')
+        q = yield self.fork('cat /proc/stat')
+        procstat, err, code = yield self.fork('cat /proc/stat')
         if code == 0:
-            stats = self._calculate_metrics(procstat.strip('\n'))
-            defer.returnValue(self._transpose_metrics(stats))
+            metrics = []
+            stat = procstat.strip('\n').split('\n')
+            for cpu in stat:
+                if cpu.split()[0] == 'cpu':
+                    prefix = ""
+                else:
+                    prefix = 'core' + cpu.split()[0].strip('cpu') + '.'
+                stats = self._calculate_metrics(cpu)
+                if stats:
+                    metrics.extend(self._transpose_metrics(stats, prefix))
+
+            defer.returnValue(metrics or None)
         else:
             raise Exception(err)
 
