@@ -85,6 +85,15 @@ class FakeMuninServer(object):
         d.callback(None)
         return d
 
+class FakeTransport(object):
+    def loseConnection(self, *a):
+        return None
+
+class FakeMemcache(object):
+    transport = FakeTransport()
+    def stats(self):
+        return globs.MEMCACHE_STATS
+
 class TestOther(TestSources):
     @defer.inlineCallbacks
     def test_postgresql(self):
@@ -146,6 +155,18 @@ class TestOther(TestSources):
 
         self.assertEquals(events[0].metric, 1)
         self.assertEquals(events[1].metric, 49.0)
+
+    @defer.inlineCallbacks
+    def test_memcache(self):
+        def _get_connector():
+            return defer.maybeDeferred(lambda: FakeMemcache())
+        s = memcache.Memcache({'service': 'memcache'}, self._qb, self.duct)
+        s._get_connector = _get_connector
+
+        events = yield s.get()
+
+        self.assertEquals(events[3].service, 'memcache.total.items')
+        self.assertEquals(events[3].metric, 44)
 
 class TestLinuxSources(TestSources):
     def test_basic_cpu(self):
