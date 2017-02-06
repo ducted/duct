@@ -42,6 +42,8 @@ class FakeDuct(object):
         'ssh_key': testKey,
         'ssh_keypass': testKeyPassword,
     }
+    inter = 1.0
+    ttl = 60.0
     hostConnectorCache = {}
 
 class Tests(unittest.TestCase):
@@ -50,9 +52,7 @@ class Tests(unittest.TestCase):
 
     def test_ssh_source_setup(self):
         s = basic.LoadAverage({
-                'interval': 1.0,
                 'service': 'mem',
-                'ttl': 60,
                 'use_ssh': True,
            }, self._qb, FakeDuct())
 
@@ -61,9 +61,7 @@ class Tests(unittest.TestCase):
             f.write(testKey)
 
         s = basic.LoadAverage({
-                'interval': 1.0,
                 'service': 'mem',
-                'ttl': 60,
                 'use_ssh': True,
                 'ssh_keyfile': 'temp_key',
                 'ssh_key': None,
