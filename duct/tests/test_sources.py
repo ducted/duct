@@ -7,7 +7,7 @@ from twisted.internet import defer, endpoints, reactor
 from twisted.web import server, static
 
 from duct.sources.linux import basic, process
-from duct.sources import riak, nginx, network, apache, munin
+from duct.sources import riak, nginx, network, apache, munin, haproxy
 from duct.sources.database import elasticsearch, postgresql, memcache
 from duct.service import DuctService
 from duct.tests import globs
@@ -167,6 +167,16 @@ class TestOther(TestSources):
 
         self.assertEquals(events[3].service, 'memcache.total.items')
         self.assertEquals(events[3].metric, 44)
+
+    @defer.inlineCallbacks
+    def test_haproxy(self):
+        def _get_stats():
+            return defer.maybeDeferred(lambda: globs.HAPROXY_CSV)
+
+        s = haproxy.HAProxy({'service': 'haproxy'}, self._qb, self.duct)
+        s._get_stats = _get_stats
+
+        events = yield s.get()
 
 class TestLinuxSources(TestSources):
     def test_basic_cpu(self):
