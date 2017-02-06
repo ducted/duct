@@ -7,15 +7,13 @@ from twisted.internet import defer, endpoints, reactor
 from twisted.web import server, static
 
 from duct.sources.linux import basic, process
-from duct.sources import riak, nginx, network
+from duct.sources import riak, nginx, network, apache
+from duct.service import DuctService
 
-class FakeService(object):
-    config = {}
-    hostConnectorCache = {}
 
 class TestLinuxSources(unittest.TestCase):
     def setUp(self):
-        self.duct = FakeService()
+        self.duct = DuctService({})
 
     def skip_if_no_hostname(self):
         try:
@@ -28,8 +26,8 @@ class TestLinuxSources(unittest.TestCase):
 
     def test_basic_cpu(self):
         self.skip_if_no_hostname()
-        s = basic.CPU(
-            {'interval': 1.0, 'service': 'cpu', 'ttl': 60}, self._qb, None)
+        s = basic.CPU({'interval': 1.0, 'service': 'cpu', },
+                      self._qb, self.duct)
 
         try:
             s.get()
@@ -39,11 +37,9 @@ class TestLinuxSources(unittest.TestCase):
 
     def test_basic_cpu_multi_core(self):
         s = basic.CPU({
-            'interval': 1.0,
             'service': 'cpu',
-            'ttl': 60,
             'hostname': 'localhost',
-        }, self._qb, None)
+        }, self._qb, self.duct)
 
         stats = [
             "cpu  2255 34 2290 25563 6290 127 456 0 0 0",
@@ -73,11 +69,9 @@ class TestLinuxSources(unittest.TestCase):
 
     def test_basic_cpu_calculation(self):
         s = basic.CPU({
-            'interval': 1.0,
             'service': 'cpu',
-            'ttl': 60,
             'hostname': 'localhost',
-        }, self._qb, None)
+        }, self._qb, self.duct)
 
         stats = ["cpu  2255 34 2290 25563 6290 127 456 0 0 0"]
         s._read_proc_stat = lambda: stats
@@ -97,9 +91,7 @@ class TestLinuxSources(unittest.TestCase):
     @defer.inlineCallbacks
     def test_basic_cpu_ssh(self):
         s = basic.CPU({
-            'interval': 1.0,
             'service': 'cpu',
-            'ttl': 60,
             'use_ssh': True,
             'ssh_knownhosts_file': None,
             'ssh_password': 'None',
@@ -124,12 +116,8 @@ class TestLinuxSources(unittest.TestCase):
         self.assertEqual(round(iowait_event.metric, 4), 0.1699)
 
     def test_basic_cpu_calculation_no_guest_stats(self):
-        s = basic.CPU({
-            'interval': 1.0,
-            'service': 'cpu',
-            'ttl': 60,
-            'hostname': 'localhost',
-        }, self._qb, None)
+        s = basic.CPU({'service': 'cpu', 'hostname': 'localhost'},
+                      self._qb, self.duct)
 
         stats = ["cpu  2255 34 2290 25563 6290 127 456 0"]
         s._read_proc_stat = lambda: stats
@@ -147,11 +135,8 @@ class TestLinuxSources(unittest.TestCase):
         self.assertEqual(round(iowait_event.metric, 4), 0.1699)
 
     def test_disk_io(self):
-        s = basic.DiskIO({
-            'interval': 1.0,
-            'service': 'disk',
-            'ttl': 60,
-            'hostname': 'localhost'}, self._qb, None)
+        s = basic.DiskIO({'service': 'disk', 'hostname': 'localhost'},
+                         self._qb, self.duct)
 
         stats = [
             '   1       0 ram0 0 0 0 0 0 0 0 0 0 0 0',
@@ -169,14 +154,13 @@ class TestLinuxSources(unittest.TestCase):
 
     def test_basic_memory(self):
         self.skip_if_no_hostname()
-        s = basic.Memory(
-            {'interval': 1.0, 'service': 'mem', 'ttl': 60}, self._qb, None)
+        s = basic.Memory({'service': 'mem'}, self._qb, self.duct)
 
         s.get()
 
     def test_basic_memory_avail(self):
         s = basic.Memory(
-            {'interval': 1.0, 'service': 'mem', 'ttl': 60}, self._qb, None)
+            {'interval': 1.0, 'service': 'mem'}, self._qb, self.duct)
 
         out = """MemTotal:        8048992 kB
 MemFree:         2774664 kB
@@ -210,44 +194,36 @@ SwapCached:            0 kB\n"""
 
     def test_basic_load(self):
         self.skip_if_no_hostname()
-        s = basic.LoadAverage(
-            {'interval': 1.0, 'service': 'mem', 'ttl': 60}, self._qb, None)
+        s = basic.LoadAverage({'service': 'mem'}, self._qb, self.duct)
 
         s.get()
 
     @defer.inlineCallbacks
     def test_process_count(self):
         self.skip_if_no_hostname()
-        s = process.ProcessCount(
-            {'interval': 1.0, 'service': 'mem', 'ttl': 60}, self._qb, None)
+        s = process.ProcessCount({'service': 'proc'}, self._qb, self.duct)
 
         yield s.get()
 
     @defer.inlineCallbacks
     def test_basic_disk_space(self):
         self.skip_if_no_hostname()
-        s = basic.DiskFree(
-            {'interval': 1.0, 'service': 'df', 'ttl': 60}, self._qb, None)
+        s = basic.DiskFree({'service': 'df'}, self._qb, self.duct)
 
         yield s.get()
 
     @defer.inlineCallbacks
     def test_process_stats(self):
         self.skip_if_no_hostname()
-        s = process.ProcessStats(
-            {'interval': 1.0, 'service': 'ps', 'ttl': 60}, self._qb, None)
+        s = process.ProcessStats({'service': 'ps'}, self._qb, self.duct)
 
         yield s.get()
 
     @defer.inlineCallbacks
     def test_http_request(self):
         self.skip_if_no_hostname()
-        s = network.HTTP({
-            'interval': 1.0, 
-            'service': 'http', 
-            'ttl': 60,
-            'url': 'http://httpbin.org'
-        }, self._qb, None)
+        s = network.HTTP({'service': 'http', 'url': 'http://httpbin.org'},
+                         self._qb, self.duct)
 
         event = yield s._get()
         self.assertEquals(event.state, 'ok')
@@ -256,12 +232,10 @@ SwapCached:            0 kB\n"""
     def test_http_request_timeout(self):
         self.skip_if_no_hostname()
         s = network.HTTP({
-            'interval': 1.0, 
-            'service': 'http', 
-            'ttl': 60,
+            'service': 'http',
             'timeout': 1,
             'url': 'http://1.1.1.1/'
-        }, self._qb, None)
+        }, self._qb, self.duct)
 
         event = yield s._get()
         self.assertEquals(event.state, 'critical')
@@ -271,19 +245,16 @@ SwapCached:            0 kB\n"""
     def test_http_request_fail(self):
         self.skip_if_no_hostname()
         s = network.HTTP({
-            'interval': 1.0, 
-            'service': 'http', 
-            'ttl': 60,
+            'service': 'http',
             'url': 'http://noresolve/'
-        }, self._qb, None)
+        }, self._qb, self.duct)
 
         event = yield s._get()
         self.assertEquals(event.state, 'critical')
 
     def test_network_stats(self):
         self.skip_if_no_hostname()
-        s = basic.Network(
-            {'interval': 1.0, 'service': 'net', 'ttl': 60}, self._qb, None)
+        s = basic.Network({'service': 'net'}, self._qb, self.duct)
 
         s._readStats = lambda: [
             '  eth0: 254519754 1437339    0    0    0     0          0      '+
@@ -300,14 +271,59 @@ SwapCached:            0 kB\n"""
         self.assertEquals(ev[4].metric, 1154168)
         self.assertEquals(ev[5].metric, 0)
 
+    @defer.inlineCallbacks
+    def test_apache_stats(self):
+        src = apache.Apache({
+            'service': 'apache',
+            'hostname': 'localhost',
+            'url': 'http://localhost/server-status?auto'
+        }, self._qb, self.duct)
+
+        def apstats():
+            return """Total Accesses: 46
+Total kBytes: 39
+CPULoad: .036
+Uptime: 4564
+ReqPerSec: .5
+BytesPerSec: 8.75
+BytesPerReq: 868.125
+BusyWorkers: 2
+IdleWorkers: 48
+ConnsTotal: 9
+ConnsAsyncWriting: 2
+ConnsAsyncKeepAlive: 3
+ConnsAsyncClosing: 4
+Scoreboard: _________________________________________________W...................................................................................................."""
+
+        src._get_stats = lambda: defer.maybeDeferred(apstats)
+
+        events = yield src.get()
+
+        results = {
+            'apache.uptime': 4564,
+            'apache.accesses': 46,
+            'apache.cpu_load': 0.036,
+            'apache.bytes_req': 868.125,
+            'apache.bytes_rate': 8.75,
+            'apache.total_kbytes': 39,
+            'apache.conns.active': 9,
+            'apache.request_rate': 0.5,
+            'apache.workers.idle': 48,
+            'apache.workers.busy': 2,
+            'apache.conns.writing': 2,
+            'apache.conns.closing': 4,
+            'apache.conns.keep_alive': 3,
+        }
+
+        for ev in events:
+            self.assertEquals(ev.metric, results.get(ev.service))
+
     def test_nginx_parse(self):
         src = nginx.Nginx({
-            'interval': 1.0, 
-            'service': 'nginx', 
-            'ttl': 60, 
+            'service': 'nginx',
             'hostname': 'localhost',
             'stats_url': 'http://localhost/nginx_stats'
-        }, self._qb, None)
+        }, self._qb, self.duct)
 
         ngstats = """Active connections: 3
 server accepts handled requests
@@ -336,13 +352,11 @@ Reading: 0 Writing: 1 Waiting: 2\n"""
         f.flush()
 
         src = nginx.NginxLogMetrics({
-            'interval': 1.0,
             'service': 'nginx',
-            'ttl': 60,
             'hostname': 'localhost',
             'log_format': 'combined',
             'file': 'foo.log'
-        }, qb, None)
+        }, qb, self.duct)
 
         src.log.tmp = 'foo.log2.lf'
 
@@ -376,14 +390,12 @@ Reading: 0 Writing: 1 Waiting: 2\n"""
         f.flush()
 
         src = nginx.NginxLogMetrics({
-            'interval': 1.0,
             'service': 'nginx',
-            'ttl': 60,
             'hostname': 'localhost',
             'log_format': 'combined',
             'history': True,
             'file': 'foo.log'
-        }, qb, None)
+        }, qb, self.duct)
 
         src.log.tmp = 'foo.log.lf'
 
@@ -418,6 +430,9 @@ Reading: 0 Writing: 1 Waiting: 2\n"""
                 self.assertEquals(i.metric, 410)
 
 class TestRiakSources(unittest.TestCase):
+    def setUp(self):
+        self.duct = DuctService({})
+
     def _qb(self, result):
         pass
 
@@ -427,7 +442,7 @@ class TestRiakSources(unittest.TestCase):
             return listener
 
         data = static.Data(json.dumps(stats).encode(), 'application/json')
-        
+
         data.isLeaf = True
         site = server.Site(data)
         endpoint = endpoints.TCP4ServerEndpoint(reactor, 0)
@@ -435,13 +450,11 @@ class TestRiakSources(unittest.TestCase):
 
     def make_riak_stats_source(self, config_overrides={}):
         config = {
-            'interval': 1.0,
             'service': 'riak',
-            'ttl': 60,
             'hostname': 'localhost',
         }
         config.update(config_overrides)
-        return riak.RiakStats(config, self._qb, None)
+        return riak.RiakStats(config, self._qb, self.duct)
 
     @defer.inlineCallbacks
     def test_riak_stats_zeros(self):

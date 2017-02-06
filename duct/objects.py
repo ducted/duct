@@ -163,8 +163,8 @@ class Source(object):
         self.attributes = None
 
         self.service = config['service']
-        self.inter = float(config['interval'])
-        self.ttl = float(config['ttl'])
+        self.inter = float(config.get('interval', duct.inter))
+        self.ttl = float(config.get('ttl', duct.ttl))
 
         if 'tags' in config:
             self.tags = [tag.strip() for tag in config['tags'].split(',')]
