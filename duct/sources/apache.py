@@ -81,8 +81,6 @@ class Apache(Source):
 
         metrics = self._parse_stats(stats)
 
-        print metrics
-
         events = []
 
         for k, v in metrics.items():

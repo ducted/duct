@@ -282,24 +282,41 @@ SwapCached:            0 kB\n"""
         def apstats():
             return """Total Accesses: 46
 Total kBytes: 39
-CPULoad: .0363716
+CPULoad: .036
 Uptime: 4564
-ReqPerSec: .0100789
-BytesPerSec: 8.75022
-BytesPerReq: 868.174
-BusyWorkers: 1
-IdleWorkers: 49
-ConnsTotal: 1
-ConnsAsyncWriting: 0
-ConnsAsyncKeepAlive: 0
-ConnsAsyncClosing: 0
+ReqPerSec: .5
+BytesPerSec: 8.75
+BytesPerReq: 868.125
+BusyWorkers: 2
+IdleWorkers: 48
+ConnsTotal: 9
+ConnsAsyncWriting: 2
+ConnsAsyncKeepAlive: 3
+ConnsAsyncClosing: 4
 Scoreboard: _________________________________________________W...................................................................................................."""
 
-        src._get_stats = defer.maybeDeferred(apstats)
+        src._get_stats = lambda: defer.maybeDeferred(apstats)
 
         events = yield src.get()
 
-        print events
+        results = {
+            'apache.uptime': 4564,
+            'apache.accesses': 46,
+            'apache.cpu_load': 0.036,
+            'apache.bytes_req': 868.125,
+            'apache.bytes_rate': 8.75,
+            'apache.total_kbytes': 39,
+            'apache.conns.active': 9,
+            'apache.request_rate': 0.5,
+            'apache.workers.idle': 48,
+            'apache.workers.busy': 2,
+            'apache.conns.writing': 2,
+            'apache.conns.closing': 4,
+            'apache.conns.keep_alive': 3,
+        }
+
+        for ev in events:
+            self.assertEquals(ev.metric, results.get(ev.service))
 
     def test_nginx_parse(self):
         src = nginx.Nginx({
