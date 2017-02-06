@@ -9,7 +9,14 @@ from twisted.web import server, static
 from duct.sources.linux import basic, process
 from duct.sources import riak, nginx, network
 
+class FakeService(object):
+    config = {}
+    hostConnectorCache = {}
+
 class TestLinuxSources(unittest.TestCase):
+    def setUp(self):
+        self.duct = FakeService()
+
     def skip_if_no_hostname(self):
         try:
             socket.gethostbyaddr(socket.gethostname())
@@ -30,6 +37,40 @@ class TestLinuxSources(unittest.TestCase):
         except:
             raise unittest.SkipTest('Might not exist in docker')
 
+    def test_basic_cpu_multi_core(self):
+        s = basic.CPU({
+            'interval': 1.0,
+            'service': 'cpu',
+            'ttl': 60,
+            'hostname': 'localhost',
+        }, self._qb, None)
+
+        stats = [
+            "cpu  2255 34 2290 25563 6290 127 456 0 0 0",
+            "cpu0 181705 1227 44920 4777152 5864 0 8054 0 0 0",
+            "cpu1 186678 1194 43662 1196906 1169 0 860 0 0 0"
+        ]
+
+        s._read_proc_stat = lambda: stats
+        # This is the first time we're getting this stat, so we get no events.
+        self.assertEqual(s.get(), None)
+
+        stats = ["cpu  4510 68 4580 51126 12580 254 912 0 0 0"]
+        stats = [
+            "cpu  2255 34 2290 25563 6290 127 456 0 0 0",
+            "cpu0 181728 1227 44936 4781296 5865 0 8055 0 0 0",
+            "cpu1 186712 1194 43670 1201159 1173 0 860 0 0 0"
+        ]
+
+        s._read_proc_stat = lambda: stats
+        events = s.get()
+        cpu_event = events[-1]
+        iowait_event = events[4]
+        self.assertEqual(cpu_event.service, 'cpu.core1')
+        self.assertEqual(round(cpu_event.metric, 4), 0.0098)
+        self.assertEqual(iowait_event.service, 'cpu.core0.iowait')
+        self.assertEqual(round(iowait_event.metric, 4), 0.0002)
+
     def test_basic_cpu_calculation(self):
         s = basic.CPU({
             'interval': 1.0,
@@ -38,14 +79,43 @@ class TestLinuxSources(unittest.TestCase):
             'hostname': 'localhost',
         }, self._qb, None)
 
-        stats = "cpu  2255 34 2290 25563 6290 127 456 0 0 0"
+        stats = ["cpu  2255 34 2290 25563 6290 127 456 0 0 0"]
         s._read_proc_stat = lambda: stats
         # This is the first time we're getting this stat, so we get no events.
         self.assertEqual(s.get(), None)
 
-        stats = "cpu  4510 68 4580 51126 12580 254 912 0 0 0"
+        stats = ["cpu  4510 68 4580 51126 12580 254 912 0 0 0"]
         s._read_proc_stat = lambda: stats
         events = s.get()
+        cpu_event = events[-1]
+        iowait_event = events[4]
+        self.assertEqual(cpu_event.service, 'cpu')
+        self.assertEqual(round(cpu_event.metric, 4), 0.1395)
+        self.assertEqual(iowait_event.service, 'cpu.iowait')
+        self.assertEqual(round(iowait_event.metric, 4), 0.1699)
+
+    @defer.inlineCallbacks
+    def test_basic_cpu_ssh(self):
+        s = basic.CPU({
+            'interval': 1.0,
+            'service': 'cpu',
+            'ttl': 60,
+            'use_ssh': True,
+            'ssh_knownhosts_file': None,
+            'ssh_password': 'None',
+            'ssh_username': 'test',
+            'hostname': 'localhost',
+        }, self._qb, self.duct)
+
+        stats = "cpu  2255 34 2290 25563 6290 127 456 0 0 0\n"
+        s.fork = lambda *x: defer.maybeDeferred(lambda *x: (stats, '', 0))
+        # This is the first time we're getting this stat, so we get no events.
+        m = yield s.sshGet()
+        self.assertEqual(m, None)
+
+        stats = "cpu  4510 68 4580 51126 12580 254 912 0 0 0\n"
+        s.fork = lambda *x: defer.maybeDeferred(lambda *x: (stats, '', 0))
+        events = yield s.sshGet()
         cpu_event = events[-1]
         iowait_event = events[4]
         self.assertEqual(cpu_event.service, 'cpu')
@@ -61,12 +131,12 @@ class TestLinuxSources(unittest.TestCase):
             'hostname': 'localhost',
         }, self._qb, None)
 
-        stats = "cpu  2255 34 2290 25563 6290 127 456 0"
+        stats = ["cpu  2255 34 2290 25563 6290 127 456 0"]
         s._read_proc_stat = lambda: stats
         # This is the first time we're getting this stat, so we get no events.
         self.assertEqual(s.get(), None)
 
-        stats = "cpu  4510 68 4580 51126 12580 254 912 0"
+        stats = ["cpu  4510 68 4580 51126 12580 254 912 0"]
         s._read_proc_stat = lambda: stats
         events = s.get()
         cpu_event = events[-1]
