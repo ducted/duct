@@ -1,7 +1,7 @@
 [MASTER]
 rcfile=./.pylintrc
 ignore=CVS
-ignore-patterns=.*_pb2.py,test_.*.py
+ignore-patterns=.*_pb2.py,test_.*.py,globs.py
 persistent=no
 load-plugins=
 jobs=2

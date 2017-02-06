@@ -11,6 +11,7 @@ from duct.protocol import riemann, elasticsearch, opentsdb
 from duct.objects import Event
 from duct.utils import fork
 from duct.configuration import ConfigFile
+from duct.tests import globs
 
 class Tests(unittest.TestCase):
     def setUp(self):
@@ -26,61 +27,14 @@ class Tests(unittest.TestCase):
         return result
 
     def test_config_parser(self):
-        testConfig = """outputs:
-    - output: duct.outputs.logger.Logger
-interval: 1.0
-ssh_username: colin
-include_path: testdir
-mergehash:
-    test:
-        foo: bar
-    test2:
-        bar: baz
-sources:
-    - service: memory
-      source: duct.sources.linux.basic.Memory
-      interval: 10.0"""
-
-        confinclude ="""toolbox:
-  standard:
-    defaults:
-      use_ssh: True
-      interval: 1
-    sources:
-      - service: memory
-        source: duct.sources.linux.basic.Memory
-      - service: cpu
-        source: duct.sources.linux.basic.CPU
-blueprint:
-  - toolbox: standard
-    defaults:
-      interval: 2
-    sets:
-      hostname:
-        - test1
-        - test2
-        - test3
-      use_ssh:
-        - True
-        - False
-mergehash:
-    test:
-        bar: baz
-    test3:
-        foo: bar
-sources:
-    - service: memory
-      source: duct.sources.linux.basic.Memory
-      interval: 5.0\n"""
-        
         if not os.path.exists('testdir'):
             os.mkdir('testdir')
         f = open('testdir/test.yaml', 'wt')
-        f.write(confinclude)
+        f.write(globs.CONFIG_INCLUDE)
         f.close()
 
         f = open('testconf.yaml', 'wt')
-        f.write(testConfig)
+        f.write(globs.CONFIG_TEST)
         f.close()
 
         c = ConfigFile('testconf.yaml')

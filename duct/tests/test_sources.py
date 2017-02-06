@@ -10,6 +10,7 @@ from duct.sources.linux import basic, process
 from duct.sources import riak, nginx, network, apache
 from duct.sources.database import elasticsearch, postgresql, memcache
 from duct.service import DuctService
+from duct.tests import globs
 
 
 class TestSources(unittest.TestCase):
@@ -68,6 +69,28 @@ class TestOther(TestSources):
 
         self.assertEquals(events[1].service, 'postgres.postgres.commits')
         self.assertEquals(events[1].metric, 1256230)
+
+    @defer.inlineCallbacks
+    def test_elastic(self):
+        s = elasticsearch.ElasticSearch({'service': 'es'},
+                                          self._qb, self.duct)
+
+        def _request(path):
+            if path == '/_cluster/stats':
+                return globs.ES_CLUSTER_STATS
+
+            if path == '/_nodes/stats':
+                return globs.ES_NODES_STATS
+
+        def _request_wrapper(path, **kw):
+            return defer.maybeDeferred(_request, path)
+
+        s.client._request = _request_wrapper
+
+        events = yield s.get()
+
+        self.assertEquals(events[0].service, 'es.cluster.status')
+        self.assertEquals(events[0].metric, 1)
 
 class TestLinuxSources(TestSources):
     def test_basic_cpu(self):
@@ -325,20 +348,7 @@ SwapCached:            0 kB\n"""
         }, self._qb, self.duct)
 
         def apstats():
-            return """Total Accesses: 46
-Total kBytes: 39
-CPULoad: .036
-Uptime: 4564
-ReqPerSec: .5
-BytesPerSec: 8.75
-BytesPerReq: 868.125
-BusyWorkers: 2
-IdleWorkers: 48
-ConnsTotal: 9
-ConnsAsyncWriting: 2
-ConnsAsyncKeepAlive: 3
-ConnsAsyncClosing: 4
-Scoreboard: _________________________________________________W...................................................................................................."""
+            return globs.APACHE_STATS
 
         src._get_stats = lambda: defer.maybeDeferred(apstats)
 
@@ -526,3 +536,4 @@ class TestRiakSources(TestSources):
         self.assertEqual(gets.metric, 2.5)
         self.assertEqual(puts.service, "riak.puts_per_second")
         self.assertEqual(puts.metric, 0.75)
+
