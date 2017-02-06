@@ -190,7 +190,10 @@ class TestOther(TestSources):
 
         events = s.get()
 
-        self.assertEquals(events[0].metric, 58.0)
+        e = [e for e in events if e.service ==
+                'sensors.coretemp.physical_id_0']
+
+        self.assertEquals(e[0].metric, 58.0)
 
 class TestLinuxSources(TestSources):
     def test_basic_cpu(self):
