@@ -5,8 +5,6 @@
 
 .. moduleauthor:: Colin Alston <colin@imcol.in>
 """
-# This is necessary in this module
-# pylint: disable=W0201
 
 from twisted.internet import defer
 

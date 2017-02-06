@@ -54,22 +54,23 @@ class HAProxy(Source):
             return self.createEvent('ok', '%s: %s' % (desc, val), val,
                                     prefix=pref, aggregation=aggr)
 
+    def _get_stats(self):
+        authorization = b64encode('%s:%s' % (self.user, self.password))
+        return HTTPRequest().getBody(
+            self.url,
+            headers={
+                'User-Agent': ['Duct'],
+                'Authorization': ['Basic ' + authorization]
+            }
+        )
+
     @defer.inlineCallbacks
     def get(self):
-        authorization = b64encode('%s:%s' % (self.user, self.password))
-
         events = []
 
         try:
-            body = yield HTTPRequest().getBody(
-                self.url,
-                headers={
-                    'User-Agent': ['Duct'],
-                    'Authorization': ['Basic ' + authorization]
-                }
-            )
-
-            body = body.lstrip('# ').split('\n')
+            stats = yield self._get_stats()
+            stats = stats.lstrip('# ').split('\n')
 
             events.append(self.createEvent('ok', 'Connection ok', 1,
                                            prefix='state'))
@@ -78,7 +79,7 @@ class HAProxy(Source):
                 'critical', 'Connection failed: %s' % (str(e)), 0,
                 prefix='state'))
 
-        c = csv.DictReader(body, delimiter=',')
+        c = csv.DictReader(stats, delimiter=',')
         for row in c:
             if row['svname'] == 'BACKEND':
                 p = 'backends.%s' % row['pxname']
