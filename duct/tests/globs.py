@@ -665,3 +665,31 @@ sources:
     - service: memory
       source: duct.sources.linux.basic.Memory
       interval: 5.0\n"""
+
+MUNIN_LIST = "apache_accesses apache_processes\n"
+
+MUNIN_APACHE_ACCESSES = """graph_title Apache accesses
+graph_args --base 1000
+graph_vlabel accesses / ${graph_period}
+graph_category apache
+accesses80.label port 80
+accesses80.type DERIVE
+accesses80.max 1000000
+accesses80.min 0
+accesses80.info The number of accesses (pages and other items served) globally on the Apache server"""
+
+MUNIN_APACHE_PROCS = """graph_title Apache processes
+graph_args --base 1000 -l 0
+graph_category apache
+graph_order busy80 idle80
+graph_vlabel processes
+graph_total total
+busy80.label busy servers 80
+busy80.draw AREA
+busy80.colour 33cc00
+idle80.label idle servers 80
+idle80.draw STACK
+idle80.colour 0033ff
+free80.label free slots 80
+free80.draw STACK
+free80.colour ccff00"""

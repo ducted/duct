@@ -7,7 +7,7 @@ from twisted.internet import defer, endpoints, reactor
 from twisted.web import server, static
 
 from duct.sources.linux import basic, process
-from duct.sources import riak, nginx, network, apache
+from duct.sources import riak, nginx, network, apache, munin
 from duct.sources.database import elasticsearch, postgresql, memcache
 from duct.service import DuctService
 from duct.tests import globs
@@ -43,6 +43,47 @@ class FakeDBAPI(object):
         def _close():
             self.closed = True
         return defer.maybeDeferred(_close)
+
+class FakeMuninServer(object):
+    configs = {
+        'apache_accesses': globs.MUNIN_APACHE_ACCESSES,
+        'apache_processes': globs.MUNIN_APACHE_PROCS
+    }
+
+    results = {
+        'apache_accesses': 'accesses80.value $',
+        'apache_processes': 'busy80.value 1\nidle80.value 49\nfree80.value 100'
+    }
+
+    def sendCommand(self, command, clist=False):
+        d = defer.Deferred()
+
+        result = ""
+        if command.startswith('cap '):
+            result = "cap multigraph dirtyconfig"
+
+        if command == 'list':
+            result = globs.MUNIN_LIST + '\n'
+
+        if command.startswith('config '):
+            toconfigure = command.split()[-1]
+            result = self.configs.get(toconfigure, "")
+
+        if command.startswith('fetch '):
+            tofetch = command.split()[-1]
+            result = self.results.get(tofetch, "")
+
+        if clist:
+            d.callback(result.strip('\n').split('\n'))
+        else:
+            d.callback(result)
+
+        return d
+
+    def disconnect(self):
+        d = defer.Deferred()
+        d.callback(None)
+        return d
 
 class TestOther(TestSources):
     @defer.inlineCallbacks
@@ -91,6 +132,20 @@ class TestOther(TestSources):
 
         self.assertEquals(events[0].service, 'es.cluster.status')
         self.assertEquals(events[0].metric, 1)
+
+    @defer.inlineCallbacks
+    def test_munin(self):
+        s = munin.MuninNode({'service': 'munin'}, self._qb, self.duct)
+
+        def _connect_munin():
+            return defer.maybeDeferred(lambda: FakeMuninServer())
+
+        s._connect_munin = _connect_munin
+
+        events = yield s.get()
+
+        self.assertEquals(events[0].metric, 1)
+        self.assertEquals(events[1].metric, 49.0)
 
 class TestLinuxSources(TestSources):
     def test_basic_cpu(self):
