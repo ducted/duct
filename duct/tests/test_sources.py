@@ -8,10 +8,11 @@ from twisted.web import server, static
 
 from duct.sources.linux import basic, process
 from duct.sources import riak, nginx, network, apache
+from duct.sources.database import elasticsearch, postgresql, memcache
 from duct.service import DuctService
 
 
-class TestLinuxSources(unittest.TestCase):
+class TestSources(unittest.TestCase):
     def setUp(self):
         self.duct = DuctService({})
 
@@ -21,13 +22,52 @@ class TestLinuxSources(unittest.TestCase):
         except socket.herror:
             raise unittest.SkipTest('Unable to get local hostname.')
 
-    def _qb(self, result):
+    def _qb(self, source, events):
         pass
 
+class FakeDBAPI(object):
+    def __init__(self, queryHandler=None):
+        self.queryHandler = queryHandler or self._handle_query
+        self.closed = False
+
+    def _handle_query(self, request):
+        return []
+
+    def runQuery(self, query, *a, **kw):
+        """ Run a query """
+        return defer.maybeDeferred(self.queryHandler, query)
+
+    def close(self):
+        """ Closes fake connection """
+        def _close():
+            self.closed = True
+        return defer.maybeDeferred(_close)
+
+class TestOther(TestSources):
+    @defer.inlineCallbacks
+    def test_postgresql(self):
+        def queryHandler(request):
+            return [
+                ('template1', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+                ('template0', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+                ('postgres', 1, 1256230, 1, 1058, 33931091, 405747556, 6290701,
+                 0, 0, 0, 1),
+                ('testdb', 0, 1304478, 0, 1495, 53416317, 686856059, 9578732,
+                 3094, 460, 151, 0)
+            ]
+
+        s = postgresql.PostgreSQL({'service': 'postgres'},
+                                  self._qb, self.duct)
+
+        s._get_connection = lambda: FakeDBAPI(queryHandler)
+
+        events = yield s.get()
+        print events
+
+class TestLinuxSources(TestSources):
     def test_basic_cpu(self):
         self.skip_if_no_hostname()
-        s = basic.CPU({'interval': 1.0, 'service': 'cpu', },
-                      self._qb, self.duct)
+        s = basic.CPU({'service': 'cpu'}, self._qb, self.duct)
 
         try:
             s.get()
@@ -429,13 +469,7 @@ Reading: 0 Writing: 1 Waiting: 2\n"""
             if i.service=='nginx.request./foo.bytes':
                 self.assertEquals(i.metric, 410)
 
-class TestRiakSources(unittest.TestCase):
-    def setUp(self):
-        self.duct = DuctService({})
-
-    def _qb(self, result):
-        pass
-
+class TestRiakSources(TestSources):
     def start_fake_riak_server(self, stats):
         def cb(listener):
             self.addCleanup(listener.stopListening)

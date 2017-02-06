@@ -44,15 +44,18 @@ class PostgreSQL(Source):
         self.port = self.config.get('port', 5432)
         self.host = self.config.get('host', '127.0.0.1')
 
-    @defer.inlineCallbacks
-    def get(self):
-        try:
-            p = adbapi.ConnectionPool('psycopg2',
+    def _get_connection(self):
+        return adbapi.ConnectionPool('psycopg2',
                                       database='postgres',
                                       host=self.host,
                                       port=self.port,
                                       user=self.user,
                                       password=self.password)
+
+    @defer.inlineCallbacks
+    def get(self):
+        try:
+            p = self._get_connection()
 
             cols = (
                 ('xact_commit', 'commits'),
@@ -64,7 +67,6 @@ class PostgreSQL(Source):
                 ('tup_inserted', 'inserts'),
                 ('tup_updated', 'updates'),
                 ('tup_deleted', 'deletes'),
-                ('deadlocks', 'deadlocks')
             )
 
             keys, names = zip(*cols)
@@ -77,6 +79,7 @@ class PostgreSQL(Source):
             for row in q:
                 db = row[0]
                 threads = row[1]
+                print db
                 if db not in ('template0', 'template1'):
                     self.queueBack(self.createEvent(
                         'ok',
@@ -104,6 +107,7 @@ class PostgreSQL(Source):
                     ' requires psycopg2')
             defer.returnValue(None)
         except Exception as e:
+            print e
             defer.returnValue(self.createEvent(
                 'critical',
                 'Connection error: %s' % str(e).replace('\n', ' '),
