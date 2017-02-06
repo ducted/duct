@@ -48,21 +48,26 @@ class TestOther(TestSources):
     def test_postgresql(self):
         def queryHandler(request):
             return [
-                ('template1', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
-                ('template0', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+                ('template1', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+                ('template0', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
                 ('postgres', 1, 1256230, 1, 1058, 33931091, 405747556, 6290701,
-                 0, 0, 0, 1),
+                 0, 0, 0),
                 ('testdb', 0, 1304478, 0, 1495, 53416317, 686856059, 9578732,
-                 3094, 460, 151, 0)
+                 3094, 460, 151)
             ]
 
+        events = []
+        def _qb(source, event):
+            events.append(event)
         s = postgresql.PostgreSQL({'service': 'postgres'},
-                                  self._qb, self.duct)
+                                  _qb, self.duct)
 
         s._get_connection = lambda: FakeDBAPI(queryHandler)
 
-        events = yield s.get()
-        print events
+        event = yield s.get()
+
+        self.assertEquals(events[1].service, 'postgres.postgres.commits')
+        self.assertEquals(events[1].metric, 1256230)
 
 class TestLinuxSources(TestSources):
     def test_basic_cpu(self):

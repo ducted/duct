@@ -79,7 +79,6 @@ class PostgreSQL(Source):
             for row in q:
                 db = row[0]
                 threads = row[1]
-                print db
                 if db not in ('template0', 'template1'):
                     self.queueBack(self.createEvent(
                         'ok',
@@ -107,7 +106,6 @@ class PostgreSQL(Source):
                     ' requires psycopg2')
             defer.returnValue(None)
         except Exception as e:
-            print e
             defer.returnValue(self.createEvent(
                 'critical',
                 'Connection error: %s' % str(e).replace('\n', ' '),
