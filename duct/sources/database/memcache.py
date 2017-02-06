@@ -38,12 +38,15 @@ class Memcache(Source):
         self.host = self.config.get('host', '127.0.0.1')
         self.port = self.config.get('port', 11211)
 
+    def _get_connector(self):
+        return protocol.ClientCreator(
+            reactor, MemCacheProtocol).connectTCP(self.host, self.port)
+
     @defer.inlineCallbacks
     def get(self):
         events = []
         try:
-            memcache = yield protocol.ClientCreator(
-                reactor, MemCacheProtocol).connectTCP(self.host, self.port)
+            memcache = yield self._get_connector()
 
             events.append(self.createEvent('ok', 'Connection', 1,
                                            prefix='state'))

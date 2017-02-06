@@ -75,13 +75,16 @@ class MuninNode(Source):
                                              munin plugin keys
     """
 
-    @defer.inlineCallbacks
-    def get(self):
+    def _connect_munin(self):
         host = self.config.get('host', 'localhost')
         port = int(self.config.get('port', 4949))
 
         creator = ClientCreator(reactor, MuninProtocol)
-        proto = yield creator.connectTCP(host, port)
+        return creator.connectTCP(host, port)
+
+    @defer.inlineCallbacks
+    def get(self):
+        proto = yield self._connect_munin()
 
         # Announce our capabilities
         yield proto.sendCommand('cap multigraph')

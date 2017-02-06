@@ -7,11 +7,13 @@ from twisted.internet import defer, endpoints, reactor
 from twisted.web import server, static
 
 from duct.sources.linux import basic, process
-from duct.sources import riak, nginx, network, apache
+from duct.sources import riak, nginx, network, apache, munin, haproxy
+from duct.sources.database import elasticsearch, postgresql, memcache
 from duct.service import DuctService
+from duct.tests import globs
 
 
-class TestLinuxSources(unittest.TestCase):
+class TestSources(unittest.TestCase):
     def setUp(self):
         self.duct = DuctService({})
 
@@ -21,13 +23,165 @@ class TestLinuxSources(unittest.TestCase):
         except socket.herror:
             raise unittest.SkipTest('Unable to get local hostname.')
 
-    def _qb(self, result):
+    def _qb(self, source, events):
         pass
 
+class FakeDBAPI(object):
+    def __init__(self, queryHandler=None):
+        self.queryHandler = queryHandler or self._handle_query
+        self.closed = False
+
+    def _handle_query(self, request):
+        return []
+
+    def runQuery(self, query, *a, **kw):
+        """ Run a query """
+        return defer.maybeDeferred(self.queryHandler, query)
+
+    def close(self):
+        """ Closes fake connection """
+        def _close():
+            self.closed = True
+        return defer.maybeDeferred(_close)
+
+class FakeMuninServer(object):
+    configs = {
+        'apache_accesses': globs.MUNIN_APACHE_ACCESSES,
+        'apache_processes': globs.MUNIN_APACHE_PROCS
+    }
+
+    results = {
+        'apache_accesses': 'accesses80.value $',
+        'apache_processes': 'busy80.value 1\nidle80.value 49\nfree80.value 100'
+    }
+
+    def sendCommand(self, command, clist=False):
+        d = defer.Deferred()
+
+        result = ""
+        if command.startswith('cap '):
+            result = "cap multigraph dirtyconfig"
+
+        if command == 'list':
+            result = globs.MUNIN_LIST + '\n'
+
+        if command.startswith('config '):
+            toconfigure = command.split()[-1]
+            result = self.configs.get(toconfigure, "")
+
+        if command.startswith('fetch '):
+            tofetch = command.split()[-1]
+            result = self.results.get(tofetch, "")
+
+        if clist:
+            d.callback(result.strip('\n').split('\n'))
+        else:
+            d.callback(result)
+
+        return d
+
+    def disconnect(self):
+        d = defer.Deferred()
+        d.callback(None)
+        return d
+
+class FakeTransport(object):
+    def loseConnection(self, *a):
+        return None
+
+class FakeMemcache(object):
+    transport = FakeTransport()
+    def stats(self):
+        return globs.MEMCACHE_STATS
+
+class TestOther(TestSources):
+    @defer.inlineCallbacks
+    def test_postgresql(self):
+        def queryHandler(request):
+            return [
+                ('template1', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+                ('template0', 0, 0, 0, 0, 0, 0, 0, 0, 0, 0),
+                ('postgres', 1, 1256230, 1, 1058, 33931091, 405747556, 6290701,
+                 0, 0, 0),
+                ('testdb', 0, 1304478, 0, 1495, 53416317, 686856059, 9578732,
+                 3094, 460, 151)
+            ]
+
+        events = []
+        def _qb(source, event):
+            events.append(event)
+        s = postgresql.PostgreSQL({'service': 'postgres'},
+                                  _qb, self.duct)
+
+        s._get_connection = lambda: FakeDBAPI(queryHandler)
+
+        event = yield s.get()
+
+        self.assertEquals(events[1].service, 'postgres.postgres.commits')
+        self.assertEquals(events[1].metric, 1256230)
+
+    @defer.inlineCallbacks
+    def test_elastic(self):
+        s = elasticsearch.ElasticSearch({'service': 'es'},
+                                          self._qb, self.duct)
+
+        def _request(path):
+            if path == '/_cluster/stats':
+                return globs.ES_CLUSTER_STATS
+
+            if path == '/_nodes/stats':
+                return globs.ES_NODES_STATS
+
+        def _request_wrapper(path, **kw):
+            return defer.maybeDeferred(_request, path)
+
+        s.client._request = _request_wrapper
+
+        events = yield s.get()
+
+        self.assertEquals(events[0].service, 'es.cluster.status')
+        self.assertEquals(events[0].metric, 1)
+
+    @defer.inlineCallbacks
+    def test_munin(self):
+        s = munin.MuninNode({'service': 'munin'}, self._qb, self.duct)
+
+        def _connect_munin():
+            return defer.maybeDeferred(lambda: FakeMuninServer())
+
+        s._connect_munin = _connect_munin
+
+        events = yield s.get()
+
+        self.assertEquals(events[0].metric, 1)
+        self.assertEquals(events[1].metric, 49.0)
+
+    @defer.inlineCallbacks
+    def test_memcache(self):
+        def _get_connector():
+            return defer.maybeDeferred(lambda: FakeMemcache())
+        s = memcache.Memcache({'service': 'memcache'}, self._qb, self.duct)
+        s._get_connector = _get_connector
+
+        events = yield s.get()
+
+        self.assertEquals(events[3].service, 'memcache.total.items')
+        self.assertEquals(events[3].metric, 44)
+
+    @defer.inlineCallbacks
+    def test_haproxy(self):
+        def _get_stats():
+            return defer.maybeDeferred(lambda: globs.HAPROXY_CSV)
+
+        s = haproxy.HAProxy({'service': 'haproxy'}, self._qb, self.duct)
+        s._get_stats = _get_stats
+
+        events = yield s.get()
+
+class TestLinuxSources(TestSources):
     def test_basic_cpu(self):
         self.skip_if_no_hostname()
-        s = basic.CPU({'interval': 1.0, 'service': 'cpu', },
-                      self._qb, self.duct)
+        s = basic.CPU({'service': 'cpu'}, self._qb, self.duct)
 
         try:
             s.get()
@@ -280,20 +434,7 @@ SwapCached:            0 kB\n"""
         }, self._qb, self.duct)
 
         def apstats():
-            return """Total Accesses: 46
-Total kBytes: 39
-CPULoad: .036
-Uptime: 4564
-ReqPerSec: .5
-BytesPerSec: 8.75
-BytesPerReq: 868.125
-BusyWorkers: 2
-IdleWorkers: 48
-ConnsTotal: 9
-ConnsAsyncWriting: 2
-ConnsAsyncKeepAlive: 3
-ConnsAsyncClosing: 4
-Scoreboard: _________________________________________________W...................................................................................................."""
+            return globs.APACHE_STATS
 
         src._get_stats = lambda: defer.maybeDeferred(apstats)
 
@@ -429,13 +570,7 @@ Reading: 0 Writing: 1 Waiting: 2\n"""
             if i.service=='nginx.request./foo.bytes':
                 self.assertEquals(i.metric, 410)
 
-class TestRiakSources(unittest.TestCase):
-    def setUp(self):
-        self.duct = DuctService({})
-
-    def _qb(self, result):
-        pass
-
+class TestRiakSources(TestSources):
     def start_fake_riak_server(self, stats):
         def cb(listener):
             self.addCleanup(listener.stopListening)
@@ -487,3 +622,4 @@ class TestRiakSources(unittest.TestCase):
         self.assertEqual(gets.metric, 2.5)
         self.assertEqual(puts.service, "riak.puts_per_second")
         self.assertEqual(puts.metric, 0.75)
+
