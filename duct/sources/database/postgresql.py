@@ -46,11 +46,11 @@ class PostgreSQL(Source):
 
     def _get_connection(self):
         return adbapi.ConnectionPool('psycopg2',
-                                      database='postgres',
-                                      host=self.host,
-                                      port=self.port,
-                                      user=self.user,
-                                      password=self.password)
+                                     database='postgres',
+                                     host=self.host,
+                                     port=self.port,
+                                     user=self.user,
+                                     password=self.password)
 
     @defer.inlineCallbacks
     def get(self):
