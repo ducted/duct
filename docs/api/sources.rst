@@ -1,22 +1,29 @@
 duct.sources
 **************
 
+duct.sources.apache
+===================
+
+.. automodule:: duct.sources.apache
+   :members:
+   :show-inheritance:
+
 duct.sources.database.postgresql
-==================================
+================================
 
 .. automodule:: duct.sources.database.postgresql
    :members:
    :show-inheritance:
 
 duct.sources.database.elasticsearch
-=====================================
+===================================
 
 .. automodule:: duct.sources.database.elasticsearch
    :members:
    :show-inheritance:
 
 duct.sources.database.memcache
-================================
+==============================
 
 .. automodule:: duct.sources.database.memcache
    :members:
