@@ -5,6 +5,8 @@
 
 .. moduleauthor:: Colin Alston <colin@imcol.in>
 """
+import os
+
 from zope.interface import implementer
 
 from twisted.internet import defer
@@ -15,11 +17,88 @@ from duct.objects import Source
 
 @implementer(IDuctSource)
 class Sensors(Source):
+    """Returns hwmon sensors info
+
+    Note: There is no transformation done on values, they may be in
+    thousands
+
+    **Metrics:**
+
+    :(service name).(adapter).(sensor): Sensor value
+    """
+
+    def _find_sensors(self):
+        path = '/sys/class/hwmon'
+        sensors = {}
+        # Find adapters
+        if os.path.exists(path):
+            monitors = os.listdir(path)
+
+            for hwmons in monitors:
+                mon_path = os.path.join(path, hwmons)
+                name_path = os.path.join(mon_path, 'name')
+                if os.path.exists(name_path):
+                    with open(name_path, 'rt') as name_file:
+                        name = name_file.read().strip()
+
+                else:
+                    name = None
+
+                if name not in sensors:
+                    sensors[name] = {}
+
+                sensor_map = {}
+
+                # Find sensors in this adapter
+                for mon_file in os.listdir(mon_path):
+                    if mon_file.startswith('temp') or mon_file.startswith(
+                            'fan'):
+                        tn = mon_file.split('_')[0]
+                        sensor_path = os.path.join(mon_path, mon_file)
+
+                        if tn not in sensor_map:
+                            sensor_map[tn] = [None, 0]
+
+                        if mon_file.endswith('_input'):
+                            with open(sensor_path, 'rt') as value_file:
+                                value = int(value_file.read().strip())
+
+                                if mon_file.startswith('temp'):
+                                    value = value / 1000.0
+
+                                sensor_map[tn][1] = value
+
+                        if mon_file.endswith('_label'):
+                            with open(sensor_path, 'rt') as value_file:
+                                sensor_name = value_file.read().strip()
+                                sensor_map[tn][0] = sensor_name
+
+                for sensor_name, value in sensor_map.values():
+                    if sensor_name:
+                        filtered_name = sensor_name.lower().replace(' ', '_')
+                        sensors[name][filtered_name] = value
+        return sensors
+
+    def get(self):
+        sensors = self._find_sensors()
+
+        events = []
+
+        for adapter, v in sensors.items():
+            for sensor, val in v.items():
+                events.append(
+                    self.createEvent('ok',
+                                     'Sensor %s:%s - %s' % (
+                                         adapter, sensor, val),
+                                     val,
+                                     prefix='%s.%s' % (adapter, sensor,)))
+        return events
+
+@implementer(IDuctSource)
+class LMSensors(Source):
     """Returns lm-sensors output
 
-    NB. This is very untested on different configurations and versions. Please
-    report any issues with the output of the `sensors` command to help
-    improve it.
+    This does the exact same thing as the Sensors class but uses lm-sensors.
 
     **Metrics:**
 
