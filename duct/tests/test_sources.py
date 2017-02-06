@@ -6,7 +6,7 @@ from twisted.trial import unittest
 from twisted.internet import defer, endpoints, reactor
 from twisted.web import server, static
 
-from duct.sources.linux import basic, process
+from duct.sources.linux import basic, process, sensors
 from duct.sources import riak, nginx, network, apache, munin, haproxy
 from duct.sources.database import elasticsearch, postgresql, memcache
 from duct.service import DuctService
@@ -177,6 +177,20 @@ class TestOther(TestSources):
         s._get_stats = _get_stats
 
         events = yield s.get()
+
+    def test_sensors(self):
+        s = sensors.Sensors({'service': 'sensors'}, self._qb, self.duct)
+        events = s.get()
+
+        s._find_sensors = lambda: {
+            'acpitz': {},
+            'coretemp': {'physical_id_0': 58.0, 'core_0': 58.0, 'core_1': 54.0},
+            'dell_smm': {'other': 34.0, 'processor_fan': 0, 'ambient': 48.0, 'cpu': 54.0, 'sodimm': 38.0}
+        }
+
+        events = s.get()
+
+        self.assertEquals(events[0].metric, 58.0)
 
 class TestLinuxSources(TestSources):
     def test_basic_cpu(self):
