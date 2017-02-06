@@ -8,9 +8,6 @@
 # This is necessary in this module
 # pylint: disable=W0201
 
-import time
-import datetime
-
 from twisted.internet import defer
 
 from zope.interface import implementer
@@ -19,8 +16,6 @@ from duct.interfaces import IDuctSource
 from duct.objects import Source
 
 from duct.utils import HTTPRequest
-from duct.aggregators import Counter64
-from duct.logs import parsers, follower
 
 @implementer(IDuctSource)
 class Apache(Source):
