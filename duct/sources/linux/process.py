@@ -5,6 +5,8 @@
 
 .. moduleauthor:: Colin Alston <colin@imcol.in>
 """
+import re
+
 from zope.interface import implementer
 
 from twisted.internet import defer
@@ -95,10 +97,9 @@ class ProcessStats(Source):
 
             # Ignore kernel and tasks that just started, usually it's this ps
             if (proc['CMD'][0] != '[') and (age > 0):
-                binary = proc['CMD'].split()[0].split('/')[-1].strip(
-                    ':').strip('-')
-                comm = proc['COMMAND']
-                user = proc['USER'].lower().replace('+', '').strip('-')
+                binary = re.sub('[^\w_]', '', proc['CMD'].split()[0])
+                comm = re.sub('[^\w_]', '', proc['COMMAND'])
+                user = re.sub('[^\w_]', '', proc['USER'].lower())
 
                 mem = int(proc['RSS'])/1024.0
                 cpu = float(proc['%CPU'])
@@ -116,8 +117,7 @@ class ProcessStats(Source):
                 else:
                     key = comm
 
-                key = key.strip('.').replace('+', '').strip('-').replace(
-                    '(', '').replace(')', '').lower().split('.')[0]
+                key = key.strip('_')
 
                 if key in procs:
                     procs[key]['cpu'] += cpu
