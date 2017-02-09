@@ -8,6 +8,7 @@
 import hashlib
 import time
 import socket
+import traceback
 
 from twisted.internet import task, defer
 from twisted.python import log
@@ -329,7 +330,16 @@ class Source(object):
                 self.queueBack(event)
 
         except Exception as ex:
-            log.msg("[%s] Unhandled error: %s" % (self.service, ex))
+            if self.duct.config.get('debug'):
+                tb_lines = traceback.format_exc().splitlines()
+                header = "[%s] Unhandled error: %%s" % (self.service)
+                log.msg(header % tb_lines[0])
+                if len(tb_lines) > 1:
+                    for l in tb_lines[1:]:
+                        log.msg(l)
+
+            else:
+                log.msg("[%s] Unhandled error: %s" % (self.service, ex))
 
         self.running = False
 
