@@ -208,7 +208,6 @@ class CPU(Source):
         cpu = [int(i) for i in stat.split()[1:]]
         # We might not have all the virt-related numbers, so zero-pad.
         cpu = (cpu + [0, 0, 0])[:10]
-
         (user, nice, system, idle, iowait, irq,
          softirq, steal, _guest, _guestnice) = cpu
 
@@ -265,6 +264,8 @@ class CPU(Source):
             metrics = []
             stat = procstat.strip('\n').split('\n')
             for cpu in stat:
+                if not cpu.startswith('cpu'):
+                    continue
                 if cpu.split()[0] == 'cpu':
                     prefix = ""
                 else:
@@ -281,6 +282,8 @@ class CPU(Source):
         stat = self._read_proc_stat()
         metrics = []
         for cpu in stat:
+            if not cpu.startswith('cpu'):
+                continue
             if cpu.split()[0] == 'cpu':
                 prefix = ""
             else:
