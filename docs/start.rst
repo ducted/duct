@@ -11,8 +11,8 @@ Install via pypi ::
 Or get the latest `.deb` or `.rpm` release from https://github.com/ducted/duct/releases/latest ::
     
     $ aptitude install python-twisted python-protobuf python-yaml
-    $ wget https://github.com/ducted/duct/releases/download/1.1/duct_1.1_amd64.deb
-    $ dpkg -i duct_1.1_amd64.deb
+    $ wget https://github.com/ducted/duct/releases/download/1.2/duct_1.2_amd64.deb
+    $ dpkg -i duct_1.2_amd64.deb
 
 This also gives you an init script and default config in /etc/duct/
 
