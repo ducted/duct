@@ -97,9 +97,9 @@ class ProcessStats(Source):
 
             # Ignore kernel and tasks that just started, usually it's this ps
             if (proc['CMD'][0] != '[') and (age > 0):
-                binary = re.sub('[^\w_]', '', proc['CMD'].split()[0])
-                comm = re.sub('[^\w_]', '', proc['COMMAND'])
-                user = re.sub('[^\w_]', '', proc['USER'].lower())
+                binary = re.sub(r'[^\w_]', '', proc['CMD'].split()[0])
+                comm = re.sub(r'[^\w_]', '', proc['COMMAND'])
+                user = re.sub(r'[^\w_]', '', proc['USER'].lower())
 
                 mem = int(proc['RSS'])/1024.0
                 cpu = float(proc['%CPU'])
