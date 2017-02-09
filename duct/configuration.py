@@ -80,9 +80,10 @@ class ConfigFile(object):
 
         paths2 = self.raw_config.get('include', [])
         if not isinstance(paths2, list):
-            paths2 = [paths]
+            paths2 = [paths2]
 
         paths.extend(paths2)
+
 
         for ipath in paths:
             if os.path.exists(ipath):
