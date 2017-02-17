@@ -62,11 +62,10 @@ class Postfix(Source):
                 val = int(out.strip('\n'))
 
                 events.extend([
-                    self.createEvent('ok', '%s queue length' % queue, val,
-                                     prefix='%s.value' % queue),
-                    self.createEvent('ok', 'Queue rate', val,
-                                     prefix='%s.rate' % queue,
-                                     aggregation=Counter)
+                    self.createEvent('ok', 'postfix queue length', val,
+                                     attributes={
+                                         'queue': queue,
+                                     })
                 ])
 
             else:
