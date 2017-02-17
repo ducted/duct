@@ -344,7 +344,7 @@ class Source(object):
         self.running = False
 
     def createEvent(self, state, description, metric, prefix=None,
-                    hostname=None, aggregation=None, evtime=None):
+                    hostname=None, aggregation=None, evtime=None, attributes=None):
         """Creates an Event object from the Source configuration"""
         if prefix:
             service_name = self.service + "." + prefix
@@ -354,7 +354,7 @@ class Source(object):
         return Event(state, service_name, description, metric, self.ttl,
                      hostname=hostname or self.hostname,
                      aggregation=aggregation,
-                     evtime=evtime, tags=self.tags, attributes=self.attributes)
+                     evtime=evtime, tags=self.tags, attributes=attributes)
 
     def createLog(self, evtype, data, evtime=None, hostname=None):
         """Creates an Event object from the Source configuration"""
