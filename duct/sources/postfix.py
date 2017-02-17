@@ -29,13 +29,13 @@ class Postfix(Source):
 
     **Metrics:**
 
-    :(service_name).active:
-    :(service_name).deferred:
-    :(service_name).maildrop:
-    :(service_name).incoming:
-    :(service_name).corrupt:
-    :(service_name).hold:
-    :(service_name).bounce:
+    :(service_name):
+    :(service_name):
+    :(service_name):
+    :(service_name):
+    :(service_name):
+    :(service_name):
+    :(service_name):
     """
     ssh = True
 
