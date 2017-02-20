@@ -344,7 +344,8 @@ class Source(object):
         self.running = False
 
     def createEvent(self, state, description, metric, prefix=None,
-                    hostname=None, aggregation=None, evtime=None, attributes=None):
+                    hostname=None, aggregation=None, evtime=None,
+                    attributes=None):
         """Creates an Event object from the Source configuration"""
         if prefix:
             service_name = self.service + "." + prefix
