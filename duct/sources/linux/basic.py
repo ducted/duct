@@ -373,9 +373,9 @@ class DiskFree(Source):
                 used = int(used)
                 free = int(free)
                 events.extend([
-                    self.createEvent('ok', 'Disk usage %s%%' % (util),
+                    self.createEvent('ok', 'Disk percent used %s%%' % (util),
                                      util, prefix="%s.used" % disk),
-                    self.createEvent('ok', 'Disk usage %s kB' % (used),
+                    self.createEvent('ok', 'Disk bytes used %s kB' % (used),
                                      used, prefix="%s.bytes" % disk),
                     self.createEvent('ok', 'Disk free %s kB' % (free),
                                      free, prefix="%s.free" % disk)
