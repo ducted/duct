@@ -401,6 +401,7 @@ SwapCached:            0 kB\n"""
 
     @defer.inlineCallbacks
     def test_http_request_timeout(self):
+        raise unittest.SkipTest('Test is unreliable')
         self.skip_if_no_hostname()
         s = network.HTTP({
             'service': 'http',
