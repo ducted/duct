@@ -23,15 +23,15 @@ PADC_MSB = 0x00
 PADC_LSB = 0x01
 TADC_MSB = 0x02
 TACD_LSB = 0x03
-A0_MSB   = 0x04
-A0_LSB   = 0x05
-B1_MSB   = 0x06
-B1_LSB   = 0x07
-B2_MSB   = 0x08
-B2_LSB   = 0x09
-C12_MSB  = 0x0A
-C12_LSB  = 0x0B
-CONVERT  = 0x12
+A0_MSB = 0x04
+A0_LSB = 0x05
+B1_MSB = 0x06
+B1_LSB = 0x07
+B2_MSB = 0x08
+B2_LSB = 0x09
+C12_MSB = 0x0A
+C12_LSB = 0x0B
+CONVERT = 0x12
 
 
 @implementer(IDuctSource)
@@ -107,7 +107,7 @@ class MPL115(Source):
 
         pcomp = self.a0 + (self.b1 + self.c12 * tadc) * padc + self.b2 * tadc
 
-        hpa  = pcomp * ((1150.0 - 500.0) / 1023.0) + 500.0
+        hpa = pcomp * ((1150.0 - 500.0) / 1023.0) + 500.0
         hpa /= pow(1.0 - (self.altitude / 44330.0), 5.255)
 
         temp = 25.0 - (tadc - 512.0) / 5.35
