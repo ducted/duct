@@ -5,8 +5,6 @@
 
 .. moduleauthor:: Colin Alston <colin@imcol.in>
 """
-import math
-
 from zope.interface import implementer
 
 from twisted.internet import defer
@@ -14,8 +12,6 @@ from twisted.internet import defer
 from duct.interfaces import IDuctSource
 from duct.objects import Source
 from duct.utils import wait
-
-import time
 
 
 # MPL115A2 Register Address
@@ -67,18 +63,19 @@ class MPL115(Source):
 
     @defer.inlineCallbacks
     def get(self):
-
         data = yield self.readData()
 
         defer.returnValue([
             self.createEvent('ok', 'HPA', round(data['hpa'], 2), prefix='hpa'),
-            self.createEvent('ok', 'Temperature', round(data['temp'], 2), prefix='temp')
+            self.createEvent('ok', 'Temperature', round(data['temp'], 2),
+                             prefix='temp')
         ])
 
     def readCoefficients(self):
+        """Read coefficients from sensor"""
         def _convert(data1, data2):
             value = data1 | (data2 << 8)
-            if (value & (1 << 16 - 1)):
+            if value & (1 << 16 - 1):
                 value -= (1 << 16)
             return value
 
@@ -96,6 +93,9 @@ class MPL115(Source):
 
     @defer.inlineCallbacks
     def readData(self):
+        """Read data from the sensor
+           returns dict containing 'hpa' and 'temp' values
+        """
         self.bus.write_byte_data(self.address, CONVERT, 0x01)
 
         yield wait(3)
