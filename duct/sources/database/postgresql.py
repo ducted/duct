@@ -5,11 +5,11 @@
 
 .. moduleauthor:: Colin Alston <colin@imcol.in>
 """
+from zope.interface import implementer
+
 from twisted.internet import defer
 from twisted.enterprise import adbapi
 from twisted.python import log
-
-from zope.interface import implementer
 
 from duct.interfaces import IDuctSource
 from duct.objects import Source

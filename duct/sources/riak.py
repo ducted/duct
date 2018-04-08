@@ -8,11 +8,11 @@
 
 import json
 
+from zope.interface import implementer
+
 from twisted.internet import defer, reactor
 from twisted.web.client import Agent
 from twisted.web.http_headers import Headers
-
-from zope.interface import implementer
 
 from duct.interfaces import IDuctSource
 from duct.objects import Source

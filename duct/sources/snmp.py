@@ -5,9 +5,6 @@
 
 .. moduleauthor:: Colin Alston <colin@imcol.in>
 """
-from twisted.internet import defer
-from twisted.python import log
-
 from zope.interface import implementer
 
 from duct.interfaces import IDuctSource
@@ -20,6 +17,8 @@ from pysnmp.carrier.twisted import dispatch
 from pysnmp.carrier.twisted.dgram import udp
 from pysnmp.proto import rfc1905, rfc1902
 
+from twisted.internet import defer
+from twisted.python import log
 
 class SNMPConnection(object):
     """A wrapper class for PySNMP functions
