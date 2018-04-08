@@ -36,6 +36,13 @@ duct.sources.docker
    :members:
    :show-inheritance:
 
+duct.sources.sensors.environment
+===================================
+
+.. automodule:: duct.sources.sensors.environment
+   :members:
+   :show-inheritance:
+
 duct.sources.haproxy
 ======================
 
