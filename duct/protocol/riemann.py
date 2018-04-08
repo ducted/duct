@@ -1,4 +1,6 @@
 """
+pylint option block-disable
+
 .. module:: riemann
    :synopsis: Riemann protocol module
 
