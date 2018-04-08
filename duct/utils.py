@@ -25,6 +25,14 @@ from twisted.python import log
 
 from twisted.internet.endpoints import clientFromString
 
+
+def wait(msecs):
+    """Simple deferred delay function
+    """
+    d = defer.Deferred()
+    reactor.callLater(msecs/1000.0, d.callback, None)
+    return d
+
 class SocketyAgent(Agent):
     """HTTP agent for connecting to UNIX sockets
     """
