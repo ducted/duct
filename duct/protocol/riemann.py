@@ -23,6 +23,8 @@ class RiemannProtobufMixin(object):
 
     def encodeEvent(self, event):
         """Adapts an Event object to a Riemann protobuf event Event"""
+        # pylint: disable=no-member
+
         pbevent = proto_pb2.Event(
             time=int(event.time),
             state=event.state,
@@ -41,6 +43,7 @@ class RiemannProtobufMixin(object):
             else:
                 pbevent.metric_d = float(event.metric)
                 pbevent.metric_f = float(event.metric)
+
         if event.attributes is not None:
             for key, value in event.attributes.items():
                 attribute = pbevent.attributes.add()
