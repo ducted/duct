@@ -8,9 +8,9 @@
 
 import time
 
-from twisted.internet import reactor
-
 from zope.interface import implementer
+
+from twisted.internet import reactor
 
 from duct.interfaces import IDuctSource
 from duct.objects import Source

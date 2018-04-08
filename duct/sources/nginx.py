@@ -11,9 +11,9 @@
 import time
 import datetime
 
-from twisted.internet import defer
-
 from zope.interface import implementer
+
+from twisted.internet import defer
 
 from duct.interfaces import IDuctSource
 from duct.objects import Source

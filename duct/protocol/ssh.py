@@ -135,7 +135,7 @@ class SSHClient(object):
         """Import a private key file
         """
         if not os.path.exists(kfile):
-            raise Exception("Key file not found %s", kfile)
+            raise Exception("Key file not found %s" % kfile)
 
         try:
             self.keys.append(Key.fromFile(kfile))

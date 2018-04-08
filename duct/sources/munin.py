@@ -6,11 +6,11 @@
 
 .. moduleauthor:: Colin Alston <colin@imcol.in>
 """
+from zope.interface import implementer
+
 from twisted.internet import defer, reactor
 from twisted.protocols.basic import LineReceiver
 from twisted.internet.protocol import ClientCreator
-
-from zope.interface import implementer
 
 from duct.interfaces import IDuctSource
 from duct.objects import Source

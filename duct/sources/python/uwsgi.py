@@ -13,10 +13,10 @@ try:
 except ImportError:
     from io import StringIO
 
+from zope.interface import implementer
+
 from twisted.internet import defer, reactor
 from twisted.internet.protocol import ClientCreator, Protocol
-
-from zope.interface import implementer
 
 from duct.interfaces import IDuctSource
 from duct.objects import Source

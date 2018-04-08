@@ -15,11 +15,11 @@ if sys.version_info > (3, 0):
 
 from email.mime.text import MIMEText
 
+from zope.interface import implementer
+
 from twisted.internet import defer
 from twisted.mail.smtp import sendmail
 from twisted.python import log
-
-from zope.interface import implementer
 
 from duct.interfaces import IDuctSource
 from duct.objects import Source

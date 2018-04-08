@@ -5,11 +5,11 @@
 
 .. moduleauthor:: Colin Alston <colin@imcol.in>
 """
+from zope.interface import implementer
+
 from twisted.internet import defer
 from twisted.internet import reactor, protocol
 from twisted.protocols.memcache import MemCacheProtocol
-
-from zope.interface import implementer
 
 from duct.interfaces import IDuctSource
 from duct.objects import Source
