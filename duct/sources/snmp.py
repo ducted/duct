@@ -7,10 +7,6 @@
 """
 from zope.interface import implementer
 
-from duct.interfaces import IDuctSource
-from duct.objects import Source
-from duct import aggregators
-
 from pysnmp.entity import engine, config
 from pysnmp.entity.rfc3413.twisted import cmdgen
 from pysnmp.carrier.twisted import dispatch
@@ -19,6 +15,10 @@ from pysnmp.proto import rfc1905, rfc1902
 
 from twisted.internet import defer
 from twisted.python import log
+
+from duct.interfaces import IDuctSource
+from duct.objects import Source
+from duct import aggregators
 
 class SNMPConnection(object):
     """A wrapper class for PySNMP functions
