@@ -1,6 +1,5 @@
+# pylint: disable=E1101
 """
-pylint option block-disable
-
 .. module:: riemann
    :synopsis: Riemann protocol module
 
