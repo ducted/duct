@@ -1,0 +1,4 @@
+ttl: 60.0
+interval: 1.0
+
+include: /duct/conf.d
