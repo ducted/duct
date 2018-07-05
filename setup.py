@@ -25,6 +25,7 @@ setup(
         'construct<2.6',
         'pysnmp==4.2.5',
         'cryptography',
+        'service_identity'
     ],
     classifiers=[
         'Development Status :: 5 - Production/Stable',
