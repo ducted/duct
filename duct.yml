@@ -2,7 +2,7 @@
 
 # Output details
 outputs:
-    - output: duct.outputs.riemann.RiemannUDP
+    - output: duct.outputs.riemann.RiemannTCP
       server: 127.0.0.1
       port: 5555
 
