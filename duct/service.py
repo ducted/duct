@@ -51,7 +51,7 @@ class DuctService(service.Service):
         self.stagger = float(self.config.get('stagger', 0.2))
 
         # Backward compatibility
-        self.server = self.config.get('server', 'localhost')
+        self.server = self.config.get('server', None)
         self.port = int(self.config.get('port', 5555))
         self.proto = self.config.get('proto', 'tcp')
         self.inter = self.config.get('interval', 60.0)
@@ -64,20 +64,22 @@ class DuctService(service.Service):
     def setupOutputs(self, config):
         """Setup output processors"""
 
-        if self.proto == 'tcp':
-            defaultOutput = {
-                'output': 'duct.outputs.riemann.RiemannTCP',
-                'server': self.server,
-                'port': self.port
-            }
+        if self.server:
+            if self.proto == 'tcp':
+                defaultOutput = {
+                    'output': 'duct.outputs.riemann.RiemannTCP',
+                    'server': self.server,
+                    'port': self.port
+                }
+            else:
+                defaultOutput = {
+                    'output': 'duct.outputs.riemann.RiemannUDP',
+                    'server': self.server,
+                    'port': self.port
+                }
+            outputs = config.get('outputs', [defaultOutput])
         else:
-            defaultOutput = {
-                'output': 'duct.outputs.riemann.RiemannUDP',
-                'server': self.server,
-                'port': self.port
-            }
-
-        outputs = config.get('outputs', [defaultOutput])
+            outputs = config.get('outputs', [])
 
         for output in outputs:
             if 'debug' not in output:
