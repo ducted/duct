@@ -29,13 +29,13 @@ class Postfix(Source):
 
     **Metrics:**
 
-    :(service_name).active:
-    :(service_name).deferred:
-    :(service_name).maildrop:
-    :(service_name).incoming:
-    :(service_name).corrupt:
-    :(service_name).hold:
-    :(service_name).bounce:
+    :(service_name):
+    :(service_name):
+    :(service_name):
+    :(service_name):
+    :(service_name):
+    :(service_name):
+    :(service_name):
     """
     ssh = True
 
@@ -62,11 +62,10 @@ class Postfix(Source):
                 val = int(out.strip('\n'))
 
                 events.extend([
-                    self.createEvent('ok', '%s queue length' % queue, val,
-                                     prefix='%s.value' % queue),
-                    self.createEvent('ok', 'Queue rate', val,
-                                     prefix='%s.rate' % queue,
-                                     aggregation=Counter)
+                    self.createEvent('ok', 'postfix queue length', val,
+                                     attributes={
+                                         'queue': queue,
+                                     })
                 ])
 
             else:
